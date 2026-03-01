@@ -72,6 +72,7 @@ locals {
       -e KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
       bitnami/kafka:latest
 
+
     echo "Kafka started on $${PUBLIC_IP}:9092"
   EOT
 }
