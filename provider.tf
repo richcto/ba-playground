@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket = "terraform-state-237617081322"
-    key    = "ba-playground/producers-lambdas/terraform.tfstate"
+    key    = "ba-playground/terraform.tfstate"
     region = "eu-west-2"
   }
 

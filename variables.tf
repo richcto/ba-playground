@@ -16,8 +16,14 @@ variable "aws_role_name" {
   default     = "github-actions"
 }
 
-variable "project_name" {
-  description = "Project name used for resource naming"
+variable "name_prefix" {
+  description = "Prefix for resource names"
   type        = string
-  default     = "kafka-submit"
+  default     = "ba-playground"
+}
+
+variable "ec2_instance_type" {
+  description = "EC2 instance type for Kafka"
+  type        = string
+  default     = "t3.micro"
 }

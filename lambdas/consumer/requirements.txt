@@ -1,0 +1,2 @@
+# Kafka consumer Lambda dependencies
+# Add packages here as needed when processing logic is added

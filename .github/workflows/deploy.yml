@@ -45,18 +45,15 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        working-directory: producers/lambdas
         run: terraform init
 
       - name: Terraform Plan
-        working-directory: producers/lambdas
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
         run: terraform plan -out=tfplan -input=false
 
       - name: Terraform Apply
-        working-directory: producers/lambdas
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
@@ -87,11 +84,9 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        working-directory: producers/lambdas
         run: terraform init
 
       - name: Terraform Destroy
-        working-directory: producers/lambdas
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
