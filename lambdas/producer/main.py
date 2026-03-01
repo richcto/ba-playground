@@ -12,6 +12,8 @@ import os
 from kafka import KafkaProducer
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 def handler(event, context):
@@ -21,7 +23,9 @@ def handler(event, context):
     Handles GET requests. Event structure follows API Gateway HTTP API format.
     Query params: topic, message.
     """
+    logger.debug("Producer invoked, event keys: %s", list(event.keys()))
     http_method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    logger.debug("HTTP method: %s", http_method)
 
     if http_method == "GET":
         return handle_get(event)
@@ -32,27 +36,38 @@ def handler(event, context):
 def handle_get(event):
     """Handle GET requests - produce message to Kafka topic from query params."""
     query_params = event.get("queryStringParameters") or {}
+    logger.debug("Query params: %s", query_params)
+
     topic = query_params.get("topic")
     message = query_params.get("message")
 
     if not topic:
+        logger.warning("Missing topic in query params")
         return response(400, {"error": "Missing required query parameter: topic"})
     if message is None:
+        logger.warning("Missing message in query params")
         return response(400, {"error": "Missing required query parameter: message"})
+
+    logger.debug("Producing to topic=%s message=%s", topic, message)
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
     if not bootstrap_servers:
         logger.error("KAFKA_BOOTSTRAP_SERVERS not configured")
         return response(500, {"error": "Kafka not configured"})
+    logger.debug("Bootstrap servers: %s", bootstrap_servers)
 
     try:
+        logger.debug("Creating KafkaProducer...")
         producer = KafkaProducer(
             bootstrap_servers=bootstrap_servers.split(","),
             value_serializer=lambda v: v.encode("utf-8"),
         )
+        logger.debug("Producer created, sending message...")
         producer.send(topic, value=message)
+        logger.debug("Flushing producer...")
         producer.flush()
         producer.close()
+        logger.info("Successfully produced message to topic=%s", topic)
     except Exception as e:
         logger.exception("Failed to produce to Kafka: %s", e)
         return response(500, {"error": str(e)})
