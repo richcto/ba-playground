@@ -1,3 +1,19 @@
+# DynamoDB table for Kafka consumer offsets (avoids Kafka consumer group coordinator)
+resource "aws_dynamodb_table" "consumer_offsets" {
+  name         = "${var.name_prefix}-kafka-consumer-offsets"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "topic_partition"
+
+  attribute {
+    name = "topic_partition"
+    type = "S"
+  }
+
+  tags = {
+    Name = "${var.name_prefix}-kafka-consumer-offsets"
+  }
+}
+
 # EC2 Kafka (default VPC)
 module "ec2_kafka" {
   source = "./modules/ec2-kafka"
