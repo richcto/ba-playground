@@ -1,5 +1,5 @@
 """
-Kafka Submit Lambda handler.
+Kafka Producer Lambda handler.
 
 Accepts GET and POST requests via API Gateway.
 """
@@ -12,12 +12,11 @@ logger = logging.getLogger(__name__)
 
 def handler(event, context):
     """
-    Lambda handler for Kafka submit API.
+    Lambda handler for Kafka producer API.
 
     Handles GET and POST requests. Event structure follows API Gateway HTTP API format.
     """
     http_method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
-    path = event.get("requestContext", {}).get("http", {}).get("path", "/")
 
     if http_method == "GET":
         return handle_get(event)
@@ -29,10 +28,13 @@ def handler(event, context):
 
 def handle_get(event):
     """Handle GET requests."""
-    logger.info("GET received, okay")
+    logger.info("GET received")
     query_params = event.get("queryStringParameters") or {}
+    if query_params.get("exception"):
+        raise Exception("Test exception")
+
     return response(200, {
-        "message": "Kafka submit API",
+        "message": "Kafka producer API",
         "method": "GET",
         "query_params": query_params,
     })
@@ -46,9 +48,9 @@ def handle_post(event):
     except json.JSONDecodeError:
         parsed = {"raw": body}
 
-    # TODO: Add Kafka submission logic here
+    # TODO: Add Kafka producer logic here
     return response(200, {
-        "message": "Kafka submit API",
+        "message": "Kafka producer API",
         "method": "POST",
         "received": parsed,
     })
