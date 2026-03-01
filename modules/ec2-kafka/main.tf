@@ -60,29 +60,18 @@ locals {
     # Get instance public IP for Kafka advertised listeners
     PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
-    # Create Docker network for Kafka and Zookeeper
-    docker network create kafka-net || true
-
-    # Run Zookeeper (required by cp-kafka)
-    docker run -d --name zookeeper --restart unless-stopped --network kafka-net \
-      -e ZOOKEEPER_CLIENT_PORT=2181 \
-      -e ZOOKEEPER_TICK_TIME=2000 \
-      confluentinc/cp-zookeeper:latest
-
-    # Wait for Zookeeper to be ready
-    sleep 15
-
-    # Run Kafka
-    docker run -d --name kafka --restart unless-stopped --network kafka-net \
+    # Run Kafka (KRaft mode - no Zookeeper)
+    docker run -d --name kafka --restart unless-stopped \
       -p 9092:9092 \
-      -e KAFKA_BROKER_ID=1 \
-      -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 \
+      -e KAFKA_NODE_ID=1 \
+      -e KAFKA_PROCESS_ROLES=broker,controller \
+      -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
       -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
       -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT \
       -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
       confluentinc/cp-kafka:latest
 
-    echo "Kafka started on $${PUBLIC_IP}:9092"
+    echo "Kafka started on $${PUBLIC_IP}:9092 (KRaft mode)"
   EOT
 }
 
