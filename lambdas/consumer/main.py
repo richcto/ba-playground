@@ -38,11 +38,15 @@ def handler(event, context):
         return {"statusCode": 500, "body": json.dumps({"error": "Kafka not configured"})}
     logger.debug("Bootstrap servers: %s", bootstrap_servers)
 
+    group_id = os.environ.get("KAFKA_CONSUMER_GROUP_ID", "kafka-consumer-lambda")
+
     try:
-        logger.debug("Creating KafkaConsumer...")
+        logger.debug("Creating KafkaConsumer (group_id=%s)...", group_id)
         consumer = KafkaConsumer(
             topic,
             bootstrap_servers=bootstrap_servers.split(","),
+            group_id=group_id,
+            enable_auto_commit=False,
             value_deserializer=lambda v: v.decode("utf-8") if v else None,
             auto_offset_reset="earliest",
             consumer_timeout_ms=2000,
@@ -59,6 +63,7 @@ def handler(event, context):
             messages.append(msg)
             logger.info("Consumed record partition=%s offset=%s value=%s", record.partition, record.offset, record.value)
 
+        consumer.commit()
         consumer.close()
         logger.info("Consumed %d message(s) from topic=%s", len(messages), topic)
     except Exception as e:
