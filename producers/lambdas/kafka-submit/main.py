@@ -29,8 +29,11 @@ def handler(event, context):
 
 def handle_get(event):
     """Handle GET requests."""
-    logger.info("GET received, okay")
+    logger.info("GET received")
     query_params = event.get("queryStringParameters") or {}
+    if query_params.get('exception')
+        raise Exception("Test exception")
+        
     return response(200, {
         "message": "Kafka submit API",
         "method": "GET",
