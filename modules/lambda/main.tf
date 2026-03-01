@@ -98,6 +98,14 @@ resource "aws_apigatewayv2_route" "root_get" {
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
+resource "aws_apigatewayv2_route" "produce_get" {
+  count = var.create_api_gateway ? 1 : 0
+
+  api_id    = aws_apigatewayv2_api.this[0].id
+  route_key = "GET /produce"
+  target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
+}
+
 resource "aws_apigatewayv2_route" "root_post" {
   count = var.create_api_gateway ? 1 : 0
 
