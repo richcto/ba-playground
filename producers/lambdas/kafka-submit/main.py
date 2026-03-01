@@ -17,7 +17,6 @@ def handler(event, context):
     Handles GET and POST requests. Event structure follows API Gateway HTTP API format.
     """
     http_method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
-    path = event.get("requestContext", {}).get("http", {}).get("path", "/")
 
     if http_method == "GET":
         return handle_get(event)
@@ -31,9 +30,9 @@ def handle_get(event):
     """Handle GET requests."""
     logger.info("GET received")
     query_params = event.get("queryStringParameters") or {}
-    if query_params.get('exception')
+    if query_params.get("exception"):
         raise Exception("Test exception")
-        
+
     return response(200, {
         "message": "Kafka submit API",
         "method": "GET",

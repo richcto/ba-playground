@@ -10,10 +10,10 @@ resource "aws_apigatewayv2_api" "kafka_submit" {
 }
 
 resource "aws_apigatewayv2_integration" "kafka_submit" {
-  api_id              = aws_apigatewayv2_api.kafka_submit.id
-  integration_type    = "AWS_PROXY"
-  integration_uri     = aws_lambda_function.kafka_submit.invoke_arn
-  integration_method  = "POST"
+  api_id                 = aws_apigatewayv2_api.kafka_submit.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.kafka_submit.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
