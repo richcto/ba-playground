@@ -118,7 +118,7 @@ resource "aws_apigatewayv2_stage" "default" {
   count = var.create_api_gateway ? 1 : 0
 
   api_id      = aws_apigatewayv2_api.this[0].id
-  name        = "$default"
+  name        = "prod"
   auto_deploy = true
 }
 
