@@ -16,9 +16,18 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
+    kafka = {
+      source  = "Mongey/kafka"
+      version = "~> 0.7"
+    }
   }
 }
 
 provider "aws" {
   region = var.aws_region
+}
+
+provider "kafka" {
+  # Use placeholder when empty (topic creation skipped); set via -var or tfvars after first apply
+  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
 }
