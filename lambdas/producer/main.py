@@ -8,12 +8,27 @@ Query params: topic (required), message (required).
 import json
 import logging
 import os
+from urllib.parse import parse_qs
 
 from kafka import KafkaProducer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger().setLevel(logging.DEBUG)
+
+
+def _get_query_params(event):
+    """Extract query params from API Gateway event. Handles both queryStringParameters and rawQueryString."""
+    params = event.get("queryStringParameters")
+    if params is not None:
+        return dict(params)
+
+    raw = event.get("rawQueryString")
+    if raw:
+        parsed = parse_qs(raw, keep_blank_values=True)
+        return {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+
+    return {}
 
 
 def handler(event, context):
@@ -35,8 +50,8 @@ def handler(event, context):
 
 def handle_get(event):
     """Handle GET requests - produce message to Kafka topic from query params."""
-    query_params = event.get("queryStringParameters") or {}
-    logger.debug("Query params: %s", query_params)
+    query_params = _get_query_params(event)
+    logger.debug("Query params: %s (rawQueryString: %s)", query_params, event.get("rawQueryString"))
 
     topic = query_params.get("topic")
     message = query_params.get("message")
@@ -75,7 +90,7 @@ def handle_get(event):
     return response(200, {
         "message": "Message produced",
         "topic": topic,
-        "message": message,
+        "value": message,
     })
 
 
