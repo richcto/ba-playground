@@ -28,6 +28,6 @@ provider "aws" {
 }
 
 provider "kafka" {
-  # Use placeholder when empty (topic creation skipped); set via -var or tfvars after first apply
   bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
+  tls_enabled      = false
 }

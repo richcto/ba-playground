@@ -31,5 +31,5 @@ variable "ec2_instance_type" {
 variable "kafka_bootstrap_servers" {
   description = "Kafka bootstrap servers for the Terraform Kafka provider (e.g. from terraform output -raw kafka_bootstrap_servers)"
   type        = string
-  default     = "13.135.157.105:9092"
+  default     = ""
 }
