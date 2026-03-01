@@ -62,11 +62,18 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Get Kafka bootstrap servers
+        id: kafka
+        run: |
+          bootstrap=$(terraform output -raw kafka_bootstrap_servers 2>/dev/null || echo "")
+          echo "bootstrap=${bootstrap}" >> $GITHUB_OUTPUT
+
       - name: Terraform Plan
         id: plan
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+          TF_VAR_kafka_bootstrap_servers: ${{ steps.kafka.outputs.bootstrap }}
         run: |
           if [ "${{ github.event.inputs.destroy }}" = "true" ]; then
             terraform plan -destroy -no-color -input=false 2>&1 | tee plan.txt
@@ -79,6 +86,7 @@ jobs:
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+          TF_VAR_kafka_bootstrap_servers: ${{ steps.kafka.outputs.bootstrap }}
         run: terraform apply -auto-approve -input=false tfplan
 
 
