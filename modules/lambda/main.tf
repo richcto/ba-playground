@@ -26,6 +26,14 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy" "additional" {
+  count = var.additional_role_policy != null ? 1 : 0
+
+  name   = var.additional_role_policy.name
+  role   = aws_iam_role.lambda.id
+  policy = var.additional_role_policy.document
+}
+
 resource "aws_lambda_function" "this" {
   filename         = data.archive_file.lambda.output_path
   function_name    = var.name

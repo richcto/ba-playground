@@ -49,3 +49,12 @@ variable "security_group_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "additional_role_policy" {
+  description = "Optional inline IAM policy to attach to the Lambda role. Map with 'name' and 'document' keys."
+  type = object({
+    name     = string
+    document = string
+  })
+  default = null
+}

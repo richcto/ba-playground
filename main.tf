@@ -28,5 +28,19 @@ module "consumer" {
   timeout    = 15
   environment = {
     KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
+    OFFSETS_TABLE_NAME      = aws_dynamodb_table.consumer_offsets.name
+  }
+  additional_role_policy = {
+    name     = "dynamodb-offsets"
+    document = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect   = "Allow"
+          Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query"]
+          Resource = [aws_dynamodb_table.consumer_offsets.arn]
+        }
+      ]
+    })
   }
 }
