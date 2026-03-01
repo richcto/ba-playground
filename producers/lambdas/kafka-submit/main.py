@@ -5,6 +5,9 @@ Accepts GET and POST requests via API Gateway.
 """
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def handler(event, context):
@@ -26,6 +29,7 @@ def handler(event, context):
 
 def handle_get(event):
     """Handle GET requests."""
+    logger.info("GET received, okay")
     query_params = event.get("queryStringParameters") or {}
     return response(200, {
         "message": "Kafka submit API",
