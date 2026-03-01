@@ -57,21 +57,21 @@ locals {
     # Wait for Elastic IP to be attached by Terraform
     sleep 90
 
-    # Get instance public IP for Kafka advertised listeners
-    PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+    # Get instance public IP for Kafka advertised listeners (IMDSv2)
+    TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
+    PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
-    # Run Kafka (Bitnami KRaft - single node)
+    # Run Kafka (Apache Kafka KRaft - single node)
     docker run -d --name kafka --restart unless-stopped \
       -p 9092:9092 \
-      -e KAFKA_CFG_NODE_ID=0 \
-      -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
-      -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-      -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
-      -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-      -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-      -e KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
-      bitnami/kafka:latest
-
+      -e KAFKA_NODE_ID=1 \
+      -e KAFKA_PROCESS_ROLES=broker,controller \
+      -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
+      -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+      -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+      -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
+      apache/kafka:3.9.0
 
     echo "Kafka started on $${PUBLIC_IP}:9092"
   EOT
