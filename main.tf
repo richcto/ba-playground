@@ -14,6 +14,9 @@ module "producer" {
   name               = "kafka-producer"
   source_dir         = "${path.module}/lambdas/producer"
   create_api_gateway = true
+  environment = {
+    KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
+  }
 }
 
 # Lambda consumer
@@ -22,4 +25,7 @@ module "consumer" {
 
   name       = "kafka-consumer"
   source_dir = "${path.module}/lambdas/consumer"
+  environment = {
+    KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
+  }
 }

@@ -1,13 +1,15 @@
 """
 Kafka Consumer Lambda handler.
 
-Consumes messages from Kafka topics via event source mapping.
-Event format: https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html
+Consumes messages from a Kafka topic specified in the event payload.
+Event format: {"topic": "topic-name"}
 """
 
-import base64
 import json
 import logging
+import os
+
+from kafka import KafkaConsumer
 
 logger = logging.getLogger(__name__)
 
@@ -16,34 +18,42 @@ def handler(event, context):
     """
     Lambda handler for Kafka consumer.
 
-    Invoked by Kafka event source mapping. Event contains records from Kafka topics.
+    Consumes from the topic specified in the event payload.
+    Event format: {"topic": "topic-name"}
     """
-    logger.info("Consumer received %d records", len(event.get("records", {})))
+    topic = event.get("topic")
+    if not topic:
+        return {"statusCode": 400, "body": json.dumps({"error": "Missing topic in event payload"})}
 
-    for topic, records in event.get("records", {}).items():
-        for record in records:
-            try:
-                process_record(topic, record)
-            except Exception as e:
-                logger.exception("Error processing record from %s: %s", topic, e)
-                raise
+    bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
+    if not bootstrap_servers:
+        logger.error("KAFKA_BOOTSTRAP_SERVERS not configured")
+        return {"statusCode": 500, "body": json.dumps({"error": "Kafka not configured"})}
 
-    return {"statusCode": 200}
+    try:
+        consumer = KafkaConsumer(
+            topic,
+            bootstrap_servers=bootstrap_servers.split(","),
+            value_deserializer=lambda v: v.decode("utf-8") if v else None,
+            auto_offset_reset="earliest",
+            consumer_timeout_ms=5000,
+        )
 
+        messages = []
+        for record in consumer:
+            messages.append({
+                "partition": record.partition,
+                "offset": record.offset,
+                "value": record.value,
+            })
+            logger.info("Consumed from %s: %s", topic, record.value)
 
-def process_record(topic: str, record: dict) -> None:
-    """Process a single Kafka record."""
-    # Decode value - may be base64 encoded
-    value = record.get("value")
-    if value:
-        try:
-            decoded = base64.b64decode(value).decode("utf-8")
-            try:
-                data = json.loads(decoded)
-                logger.info("Topic %s: %s", topic, data)
-            except json.JSONDecodeError:
-                logger.info("Topic %s: %s", topic, decoded)
-        except Exception:
-            logger.info("Topic %s: (binary)", topic)
-    else:
-        logger.info("Topic %s: (empty)", topic)
+        consumer.close()
+    except Exception as e:
+        logger.exception("Failed to consume from Kafka: %s", e)
+        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"topic": topic, "messages": messages}),
+    }
