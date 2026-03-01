@@ -4,10 +4,16 @@ variable "aws_region" {
   default     = "eu-west-2"
 }
 
-variable "aws_profile" {
-  description = "AWS profile for local dev. Set to empty string in CI (TF_VAR_aws_profile=)."
+variable "aws_account_id" {
+  description = "AWS account ID for deployment"
   type        = string
-  default     = "rjones2102.work"
+  default     = "237617081322"
+}
+
+variable "aws_role_name" {
+  description = "IAM role name for GitHub Actions to assume"
+  type        = string
+  default     = "github-actions"
 }
 
 variable "project_name" {
