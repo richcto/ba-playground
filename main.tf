@@ -25,6 +25,7 @@ module "consumer" {
 
   name       = "kafka-consumer"
   source_dir = "${path.module}/build/consumer"
+  timeout    = 15
   environment = {
     KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
   }

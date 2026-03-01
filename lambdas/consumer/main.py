@@ -45,9 +45,9 @@ def handler(event, context):
             bootstrap_servers=bootstrap_servers.split(","),
             value_deserializer=lambda v: v.decode("utf-8") if v else None,
             auto_offset_reset="earliest",
-            consumer_timeout_ms=5000,
+            consumer_timeout_ms=2000,
         )
-        logger.debug("Consumer created, polling for messages (timeout 5s)...")
+        logger.debug("Consumer created, polling for messages (timeout 2s)...")
 
         messages = []
         for record in consumer:
