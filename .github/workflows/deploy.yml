@@ -68,73 +68,81 @@ jobs:
             terraform plan -no-color -out=tfplan -input=false 2>&1 | tee plan.txt
           fi
 
-      - name: Upload Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: tfplan
-          path: tfplan
-        if: github.event.inputs.destroy != 'true' && hashFiles('tfplan') != ''
-
-      - name: Create Plan Comment File
-        if: github.event_name == 'pull_request'
-        run: |
-          echo '#### Terraform Plan 📖' > plan-comment.md
-          echo '<details><summary>Show Plan</summary>' >> plan-comment.md
-          echo '' >> plan-comment.md
-          echo '```terraform' >> plan-comment.md
-          cat plan.txt >> plan-comment.md
-          echo '```' >> plan-comment.md
-          echo '' >> plan-comment.md
-          echo '</details>' >> plan-comment.md
-          echo '' >> plan-comment.md
-          echo "*Triggered by: @${{ github.actor }}*" >> plan-comment.md
-
-      - name: Comment Plan on PR
-        if: github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: plan-comment.md
-          comment-id: terraform-plan
-
-  apply:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.destroy != 'true'
-    runs-on: ubuntu-latest
-    environment: dev
-    needs: plan
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
-          terraform_wrapper: false
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Download Plan
-        uses: actions/download-artifact@v4
-        with:
-          name: tfplan
 
       - name: Terraform Apply
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
         run: terraform apply -auto-approve -input=false tfplan
+
+
+  #     - name: Upload Plan
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: tfplan
+  #         path: tfplan
+  #       if: github.event.inputs.destroy != 'true' && hashFiles('tfplan') != ''
+
+  #     - name: Create Plan Comment File
+  #       if: github.event_name == 'pull_request'
+  #       run: |
+  #         echo '#### Terraform Plan 📖' > plan-comment.md
+  #         echo '<details><summary>Show Plan</summary>' >> plan-comment.md
+  #         echo '' >> plan-comment.md
+  #         echo '```terraform' >> plan-comment.md
+  #         cat plan.txt >> plan-comment.md
+  #         echo '```' >> plan-comment.md
+  #         echo '' >> plan-comment.md
+  #         echo '</details>' >> plan-comment.md
+  #         echo '' >> plan-comment.md
+  #         echo "*Triggered by: @${{ github.actor }}*" >> plan-comment.md
+
+  #     - name: Comment Plan on PR
+  #       if: github.event_name == 'pull_request'
+  #       uses: peter-evans/create-or-update-comment@v4
+  #       with:
+  #         issue-number: ${{ github.event.pull_request.number }}
+  #         body-path: plan-comment.md
+  #         comment-id: terraform-plan
+
+  # apply:
+  #   if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.destroy != 'true'
+  #   runs-on: ubuntu-latest
+  #   environment: dev
+  #   needs: plan
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
+  #         aws-region: ${{ env.AWS_REGION }}
+
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: 1.6.0
+  #         terraform_wrapper: false
+
+  #     - name: Terraform Init
+  #       run: terraform init
+
+  #     - name: Download Plan
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: tfplan
+
+  #     - name: Terraform Apply
+  #       env:
+  #         TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+  #         TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+  #       run: terraform apply -auto-approve -input=false tfplan
 
   destroy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy == 'true'
