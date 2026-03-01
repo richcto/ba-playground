@@ -1,0 +1,4 @@
+# Kafka submit Lambda dependencies
+# Add packages here as needed, e.g.:
+# aiokafka
+# kafka-python

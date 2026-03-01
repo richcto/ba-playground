@@ -1,0 +1,234 @@
+{
+  "main": {
+    "id": "402dc3d31ffaf508",
+    "type": "split",
+    "children": [
+      {
+        "id": "0acdb9879a7d158c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a3b5235bd3e46492",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "06 Decisions (ADRs)/ADR Template.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "ADR Template"
+            }
+          },
+          {
+            "id": "dd223a9b7f4d4253",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "10 Meetings/Meeting Template.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Meeting Template"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "6b836ecf61e7483b",
+    "type": "split",
+    "children": [
+      {
+        "id": "bb3d934d62223d94",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "429467b0e28c9305",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "53239b53595aac08",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "topic",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "ab45c4890c710dff",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "2a4bd408d2b0f31d",
+    "type": "split",
+    "children": [
+      {
+        "id": "ef0c295c97a0d332",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "498b305f92fd6e6a",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "10 Meetings/Meeting Template.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Meeting Template"
+            }
+          },
+          {
+            "id": "742e93897a358b89",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "10 Meetings/Meeting Template.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Meeting Template"
+            }
+          },
+          {
+            "id": "961b5a697b128cad",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "ff5fbe8c3ea97568",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "433efa330c22dd31",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "10 Meetings/Meeting Template.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Meeting Template"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "dd223a9b7f4d4253",
+  "lastOpenFiles": [
+    "11 People/People Index.md",
+    "12 Glossary/Glossary.md",
+    "06 Decisions (ADRs)/ADR Template.md",
+    "06 Decisions (ADRs)/Untitled.md",
+    "Templates/ADR Template.md",
+    "05 Governance/Topic Naming Standard.md",
+    "Templates/Integration Template.md",
+    "02 Platform/Schema Registry.md",
+    "02 Platform/Observability.md",
+    "02 Platform/Networking Model.md",
+    "02 Platform/ksqlDB.md",
+    "test.md",
+    "01 Programme/Milestones.md",
+    "02 Platform/DR Strategy.md",
+    "02 Platform/Security Architecture.md",
+    "02 Platform/Connect.md",
+    "02 Platform/Kafka Clusters.md",
+    "08 Operations/Scaling.md",
+    "08 Operations/Partition Strategy.md",
+    "03 Data Domains/Flight Operations.md",
+    "08 Operations/Alerting.md",
+    "04 Integrations/Aircraft Feed to Kafka.md",
+    "04 Integrations/Kafka to Data Lake.md",
+    "04 Integrations/Kafka to Microservices.md",
+    "04 Integrations/Kafka to Snowflake.md",
+    "Templates/Requirement Template.md",
+    "Untitled.canvas",
+    "Untitled 1.canvas",
+    "Untitled 1.base",
+    "Untitled.base"
+  ]
+}
