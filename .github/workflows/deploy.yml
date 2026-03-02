@@ -86,7 +86,7 @@ jobs:
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
-          TF_VAR_kafka_bootstrap_servers: "" # ${{ steps.kafka.outputs.bootstrap }}
+          TF_VAR_kafka_bootstrap_servers: ${{ steps.kafka.outputs.bootstrap }}
         run: |
           if [ "${{ github.event.inputs.destroy }}" = "true" ]; then
             terraform plan -destroy -no-color -input=false 2>&1 | tee plan.txt
