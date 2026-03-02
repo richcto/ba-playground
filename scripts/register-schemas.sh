@@ -7,18 +7,44 @@ set -e
 SCHEMA_REGISTRY_URL="${1:?Usage: $0 <SCHEMA_REGISTRY_URL>}"
 SCHEMAS_DIR="$(dirname "$0")/../schemas"
 
-# Register key schema (compact JSON string)
-KEY_SCHEMA='{"type":"string"}'
-echo "Registering ticket-purchases-key schema..."
-curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-  --data "{\"schema\": $(echo "$KEY_SCHEMA" | jq -Rs .)}" \
-  "$SCHEMA_REGISTRY_URL/subjects/ticket-purchases-key/versions" | jq .
+register_schema() {
+  local subject=$1
+  local schema=$2
+  local response
+  local http_code
 
-# Register value schema (read from file, compact, escape)
+  echo -n "Registering $subject schema... "
+  response=$(curl -s -w "\n%{http_code}" -X POST \
+    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+    --connect-timeout 5 \
+    --data "{\"schema\": $(echo "$schema" | jq -Rs .)}" \
+    "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" 2>/dev/null) || true
+  http_code=$(echo "$response" | tail -n1)
+  response=$(echo "$response" | sed '$d')
+
+  if [[ "$http_code" == "000" ]] || [[ -z "$http_code" ]]; then
+    echo "FAILED"
+    echo "  Error: Cannot connect to Schema Registry at $SCHEMA_REGISTRY_URL"
+    exit 1
+  fi
+  if [[ "$http_code" != "200" ]]; then
+    echo "FAILED (HTTP $http_code)"
+    echo "$response" | jq . 2>/dev/null || echo "$response"
+    exit 1
+  fi
+  echo "OK (id: $(echo "$response" | jq -r '.id'))"
+}
+
+# Register key schema
+KEY_SCHEMA='{"type":"string"}'
+register_schema "ticket-purchases-key" "$KEY_SCHEMA"
+
+# Register value schema
+if [[ ! -f "$SCHEMAS_DIR/ticket-purchases-value.avsc" ]]; then
+  echo "Error: Schema file not found: $SCHEMAS_DIR/ticket-purchases-value.avsc"
+  exit 1
+fi
 VALUE_SCHEMA=$(jq -c . "$SCHEMAS_DIR/ticket-purchases-value.avsc")
-echo "Registering ticket-purchases-value schema..."
-curl -s -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-  --data "{\"schema\": $(echo "$VALUE_SCHEMA" | jq -Rs .)}" \
-  "$SCHEMA_REGISTRY_URL/subjects/ticket-purchases-value/versions" | jq .
+register_schema "ticket-purchases-value" "$VALUE_SCHEMA"
 
 echo "Done."
