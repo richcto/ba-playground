@@ -16,10 +16,10 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
-    kafka = {
-      source  = "Mongey/kafka"
-      version = "~> 0.7"
-    }
+    # kafka = {
+    #   source  = "Mongey/kafka"
+    #   version = "~> 0.7"
+    # }
   }
 }
 
