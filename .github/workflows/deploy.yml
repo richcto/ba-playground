@@ -75,6 +75,12 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Remove Kafka resources from state (if present)
+        run: |
+          for addr in $(terraform state list 2>/dev/null | grep -E '^kafka_' || true); do
+            terraform state rm "$addr" || true
+          done
+
       - name: Get Kafka bootstrap servers
         id: kafka
         run: |
@@ -255,6 +261,12 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
+
+      - name: Remove Kafka resources from state (if present)
+        run: |
+          for addr in $(terraform state list 2>/dev/null | grep -E '^kafka_' || true); do
+            terraform state rm "$addr" || true
+          done
 
       - name: Terraform Destroy
         env:
