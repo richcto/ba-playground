@@ -16,11 +16,11 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
-    # kafka = {
-    #   source  = "Mongey/kafka"
-    #   version = "~> 0.7"
-    # }
-    
+    kafka = {
+      source  = "Mongey/kafka"
+      version = "~> 0.7"
+    }
+
   }
 }
 
@@ -28,7 +28,8 @@ provider "aws" {
   region = var.aws_region
 }
 
-# provider "kafka" {
-#   bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : [""]
-#   tls_enabled      = false
-# }
+provider "kafka" {
+  # Placeholder when EC2 is destroyed; provider won't connect if no kafka_* resources are managed
+  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
+  tls_enabled       = false
+}
