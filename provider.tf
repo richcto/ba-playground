@@ -28,6 +28,6 @@ provider "aws" {
 }
 
 provider "kafka" {
-  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
+  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : [""]
   tls_enabled      = false
 }
