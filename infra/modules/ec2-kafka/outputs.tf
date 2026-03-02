@@ -9,8 +9,8 @@ output "public_ip" {
 }
 
 output "kafka_bootstrap_servers" {
-  description = "Kafka bootstrap servers address (public)"
-  value       = "${aws_eip.kafka.public_ip}:9092"
+  description = "Kafka bootstrap servers (EXTERNAL listener for Lambdas, laptop, tools)"
+  value       = "${aws_eip.kafka.public_ip}:9094"
 }
 
 output "kafka_private_ip" {

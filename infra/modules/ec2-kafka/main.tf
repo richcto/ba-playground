@@ -57,23 +57,27 @@ locals {
     # Wait for Elastic IP to be attached by Terraform
     sleep 90
 
-    # Get instance public IP for Kafka advertised listeners (IMDSv2)
+    # Get instance IPs (IMDSv2)
     TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
     PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
+    PRIVATE_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4)
 
-    # Run Kafka (Apache Kafka KRaft - single node)
+    # Run Kafka (Apache Kafka KRaft) with dual listeners:
+    # INTERNAL (9092): Schema Registry, in-VPC clients - advertised as private IP
+    # EXTERNAL (9094): Laptop, Lambdas, tools - advertised as public IP
     docker run -d --name kafka --restart unless-stopped \
-      -p 9092:9092 \
+      -p 9092:9092 -p 9094:9094 \
       -e KAFKA_NODE_ID=1 \
       -e KAFKA_PROCESS_ROLES=broker,controller \
       -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
       -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-      -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-      -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
+      -e KAFKA_LISTENERS=INTERNAL://:9092,EXTERNAL://:9094,CONTROLLER://:9093 \
+      -e KAFKA_ADVERTISED_LISTENERS=INTERNAL://$${PRIVATE_IP}:9092,EXTERNAL://$${PUBLIC_IP}:9094 \
+      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT \
+      -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL \
       apache/kafka:3.9.0
 
-    echo "Kafka started on $${PUBLIC_IP}:9092"
+    echo "Kafka started: INTERNAL $${PRIVATE_IP}:9092, EXTERNAL $${PUBLIC_IP}:9094"
   EOT
 }
 
@@ -84,9 +88,17 @@ resource "aws_security_group" "ec2_kafka" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Kafka broker"
-    from_port   = var.kafka_port
-    to_port     = var.kafka_port
+    description = "Kafka INTERNAL (Schema Registry, in-VPC)"
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = var.ingress_cidr_blocks
+  }
+
+  ingress {
+    description = "Kafka EXTERNAL (laptop, Lambdas, tools)"
+    from_port   = 9094
+    to_port     = 9094
     protocol    = "tcp"
     cidr_blocks = var.ingress_cidr_blocks
   }
