@@ -24,15 +24,18 @@ module "ec2_kafka" {
   ingress_cidr_blocks = var.kafka_ingress_mode == "restricted" ? ["${var.kafka_allowed_ip}/32"] : ["0.0.0.0/0"]
 }
 
-# Allow Schema Registry to connect to Kafka
+# Allow Schema Registry to connect to Kafka on INTERNAL listener (9092)
+# This rule adds ingress from Schema Registry SG - required for Schema Registry to reach Kafka
 resource "aws_security_group_rule" "kafka_from_schema_registry" {
+  depends_on = [module.ec2_kafka, module.ec2_schema_registry]
+
   type                     = "ingress"
   from_port                = 9092
   to_port                  = 9092
   protocol                 = "tcp"
   source_security_group_id  = module.ec2_schema_registry.security_group_id
   security_group_id         = module.ec2_kafka.security_group_id
-  description              = "Kafka from Schema Registry"
+  description              = "Kafka INTERNAL from Schema Registry"
 }
 
 # EC2 Schema Registry
