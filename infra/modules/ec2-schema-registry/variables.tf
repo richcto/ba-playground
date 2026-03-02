@@ -14,14 +14,12 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
-variable "kafka_port" {
-  description = "Kafka broker port"
-  type        = number
-  default     = 9092
+variable "kafka_bootstrap_servers" {
+  description = "Kafka bootstrap servers (use private IP for same-VPC, e.g. 10.0.0.1:9092)"
+  type        = string
 }
 
 variable "ingress_cidr_blocks" {
-  description = "CIDR blocks allowed to access Kafka and SSH (e.g. [\"109.151.168.190/32\"] for restricted, [\"0.0.0.0/0\"] for public)"
+  description = "CIDR blocks allowed to access Schema Registry on 8081"
   type        = list(string)
 }
-

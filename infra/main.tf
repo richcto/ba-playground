@@ -18,9 +18,32 @@ resource "aws_dynamodb_table" "consumer_offsets" {
 module "ec2_kafka" {
   source = "./modules/ec2-kafka"
 
-  name_prefix   = var.name_prefix
-  aws_region    = var.aws_region
-  instance_type = var.ec2_instance_type
+  name_prefix        = var.name_prefix
+  aws_region         = var.aws_region
+  instance_type      = var.ec2_instance_type
+  ingress_cidr_blocks = var.kafka_ingress_mode == "restricted" ? ["${var.kafka_allowed_ip}/32"] : ["0.0.0.0/0"]
+}
+
+# Allow Schema Registry to connect to Kafka
+resource "aws_security_group_rule" "kafka_from_schema_registry" {
+  type                     = "ingress"
+  from_port                = 9092
+  to_port                  = 9092
+  protocol                 = "tcp"
+  source_security_group_id  = module.ec2_schema_registry.security_group_id
+  security_group_id         = module.ec2_kafka.security_group_id
+  description              = "Kafka from Schema Registry"
+}
+
+# EC2 Schema Registry
+module "ec2_schema_registry" {
+  source = "./modules/ec2-schema-registry"
+
+  name_prefix        = var.name_prefix
+  aws_region         = var.aws_region
+  instance_type      = var.ec2_instance_type
+  kafka_bootstrap_servers = "${module.ec2_kafka.kafka_private_ip}:9092"
+  ingress_cidr_blocks = var.kafka_ingress_mode == "restricted" ? ["${var.kafka_allowed_ip}/32"] : ["0.0.0.0/0"]
 }
 
 # Lambda producer (API Gateway)

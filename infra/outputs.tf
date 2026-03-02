@@ -29,3 +29,9 @@ output "consumer_function_name" {
   description = "Consumer Lambda function name"
   value       = module.consumer.function_name
 }
+
+# Schema Registry
+output "schema_registry_url" {
+  description = "Schema Registry URL"
+  value       = module.ec2_schema_registry.schema_registry_url
+}

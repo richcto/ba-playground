@@ -14,8 +14,8 @@ data "aws_subnet" "first" {
 }
 
 # IAM role for EC2 with SSM
-resource "aws_iam_role" "ec2_kafka" {
-  name = "${var.name_prefix}-ec2-kafka-role"
+resource "aws_iam_role" "schema_registry" {
+  name = "${var.name_prefix}-ec2-schema-registry-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -32,61 +32,52 @@ resource "aws_iam_role" "ec2_kafka" {
 }
 
 resource "aws_iam_role_policy_attachment" "ssm_managed_core" {
-  role       = aws_iam_role.ec2_kafka.name
+  role       = aws_iam_role.schema_registry.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_instance_profile" "ec2_kafka" {
-  name = "${var.name_prefix}-ec2-kafka-profile"
-  role = aws_iam_role.ec2_kafka.name
+resource "aws_iam_instance_profile" "schema_registry" {
+  name = "${var.name_prefix}-ec2-schema-registry-profile"
+  role = aws_iam_role.schema_registry.name
 }
 
-# User data: install Docker and run Kafka
+# User data: install Docker and run Schema Registry
 locals {
   user_data = <<-EOT
     #!/bin/bash
     set -e
     exec > >(tee /var/log/user-data.log) 2>&1
 
-    # Install Docker
     yum update -y
     yum install -y docker
     systemctl start docker
     systemctl enable docker
 
-    # Wait for Elastic IP to be attached by Terraform
+    # Wait for Kafka to be ready
     sleep 90
 
-    # Get instance public IP for Kafka advertised listeners (IMDSv2)
-    TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
-    PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
+    docker run -d --name schema-registry --restart unless-stopped \
+      -p 8081:8081 \
+      -e SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=${var.kafka_bootstrap_servers} \
+      -e SCHEMA_REGISTRY_HOST_NAME=localhost \
+      -e SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081 \
+      -e SCHEMA_REGISTRY_HEAP_OPTS="-Xms256m -Xmx256m" \
+      confluentinc/cp-schema-registry:7.6.0
 
-    # Run Kafka (Apache Kafka KRaft - single node)
-    docker run -d --name kafka --restart unless-stopped \
-      -p 9092:9092 \
-      -e KAFKA_NODE_ID=1 \
-      -e KAFKA_PROCESS_ROLES=broker,controller \
-      -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
-      -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-      -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-      -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
-      apache/kafka:3.9.0
-
-    echo "Kafka started on $${PUBLIC_IP}:9092"
+    echo "Schema Registry started on 8081"
   EOT
 }
 
 # Security group
-resource "aws_security_group" "ec2_kafka" {
-  name        = "${var.name_prefix}-ec2-kafka-sg"
-  description = "Security group for Kafka EC2 instance"
+resource "aws_security_group" "schema_registry" {
+  name        = "${var.name_prefix}-ec2-schema-registry-sg"
+  description = "Security group for Schema Registry EC2 instance"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Kafka broker"
-    from_port   = var.kafka_port
-    to_port     = var.kafka_port
+    description = "Schema Registry API"
+    from_port   = 8081
+    to_port     = 8081
     protocol    = "tcp"
     cidr_blocks = var.ingress_cidr_blocks
   }
@@ -107,27 +98,27 @@ resource "aws_security_group" "ec2_kafka" {
   }
 
   tags = {
-    Name = "${var.name_prefix}-ec2-kafka-sg"
+    Name = "${var.name_prefix}-ec2-schema-registry-sg"
   }
 }
 
 # EC2 instance
-resource "aws_instance" "kafka" {
+resource "aws_instance" "schema_registry" {
   ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = var.instance_type
   subnet_id              = data.aws_subnet.first.id
-  vpc_security_group_ids = [aws_security_group.ec2_kafka.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2_kafka.name
+  vpc_security_group_ids = [aws_security_group.schema_registry.id]
+  iam_instance_profile   = aws_iam_instance_profile.schema_registry.name
   user_data              = local.user_data
 
   tags = {
-    Name = "${var.name_prefix}-ec2-kafka"
+    Name = "${var.name_prefix}-ec2-schema-registry"
   }
 
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit  = 1
   }
 }
 
@@ -148,11 +139,11 @@ data "aws_ami" "amazon_linux_2023" {
 }
 
 # Elastic IP
-resource "aws_eip" "kafka" {
-  instance = aws_instance.kafka.id
+resource "aws_eip" "schema_registry" {
+  instance = aws_instance.schema_registry.id
   domain   = "vpc"
 
   tags = {
-    Name = "${var.name_prefix}-ec2-kafka-eip"
+    Name = "${var.name_prefix}-ec2-schema-registry-eip"
   }
 }

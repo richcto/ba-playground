@@ -27,3 +27,19 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t3.micro"
 }
+
+variable "kafka_ingress_mode" {
+  description = "Ingress mode for Kafka/SSH: 'restricted' (your IP only) or 'public' (0.0.0.0/0 for GitHub Actions)"
+  type        = string
+  default     = "restricted"
+  validation {
+    condition     = contains(["restricted", "public"], var.kafka_ingress_mode)
+    error_message = "kafka_ingress_mode must be 'restricted' or 'public'."
+  }
+}
+
+variable "kafka_allowed_ip" {
+  description = "Your IP for restricted mode (CIDR /32)"
+  type        = string
+  default     = "109.151.168.190"
+}
