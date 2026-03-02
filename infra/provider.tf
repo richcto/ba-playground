@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket = "terraform-state-237617081322"
-    key    = "ba-playground/terraform.tfstate"
+    key    = "ba-playground/infra/terraform.tfstate"
     region = "eu-west-2"
   }
 
@@ -16,18 +16,9 @@ terraform {
       source  = "hashicorp/archive"
       version = "~> 2.0"
     }
-    kafka = {
-      source  = "Mongey/kafka"
-      version = "~> 0.7"
-    }
   }
 }
 
 provider "aws" {
   region = var.aws_region
-}
-
-provider "kafka" {
-  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
-  tls_enabled      = false
 }

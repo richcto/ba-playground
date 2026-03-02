@@ -1,0 +1,69 @@
+name: Deploy Kafka Config
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-2
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_ROLE_NAME: ${{ vars.AWS_ROLE_NAME }}
+
+jobs:
+  kafka_config:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Terraform Init (infra) - get bootstrap servers
+        working-directory: infra
+        run: terraform init
+
+      - name: Get Kafka bootstrap servers
+        id: kafka
+        run: |
+          bootstrap=$(cd infra && terraform output -raw kafka_bootstrap_servers 2>/dev/null || echo "")
+          if [ -z "$bootstrap" ]; then
+            echo "::error::kafka_bootstrap_servers output is empty. Deploy infra first (run deploy-infra workflow)."
+            exit 1
+          fi
+          echo "bootstrap=${bootstrap}" >> $GITHUB_OUTPUT
+
+      - name: Wait for Kafka
+        run: |
+          host=$(echo "${{ steps.kafka.outputs.bootstrap }}" | cut -d: -f1)
+          for i in $(seq 1 18); do
+            if timeout 5 bash -c "echo >/dev/tcp/$host/9092" 2>/dev/null; then
+              echo "Kafka is reachable"
+              exit 0
+            fi
+            echo "Waiting for Kafka... ($i/18)"
+            sleep 10
+          done
+          echo "::error::Kafka did not become reachable in 3 minutes"
+          exit 1
+
+      - name: Terraform Init (kafka)
+        working-directory: kafka
+        run: terraform init
+
+      - name: Terraform Apply (Kafka config)
+        working-directory: kafka
+        run: terraform apply -auto-approve -input=false

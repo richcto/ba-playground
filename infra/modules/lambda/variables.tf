@@ -20,6 +20,12 @@ variable "runtime" {
   default     = "python3.12"
 }
 
+variable "timeout" {
+  description = "Lambda timeout in seconds"
+  type        = number
+  default     = 3
+}
+
 variable "create_api_gateway" {
   description = "Create API Gateway HTTP API and attach to Lambda"
   type        = bool
@@ -42,4 +48,13 @@ variable "security_group_ids" {
   description = "Security group IDs for Lambda VPC config"
   type        = list(string)
   default     = []
+}
+
+variable "additional_role_policy" {
+  description = "Optional inline IAM policy to attach to the Lambda role. Map with 'name' and 'document' keys."
+  type = object({
+    name     = string
+    document = string
+  })
+  default = null
 }

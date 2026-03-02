@@ -1,2 +1,1 @@
-# Kafka consumer Lambda dependencies
-# Add packages here as needed when processing logic is added
+kafka-python>=2.0.2

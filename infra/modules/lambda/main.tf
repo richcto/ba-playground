@@ -26,6 +26,14 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy" "additional" {
+  count = var.additional_role_policy != null ? 1 : 0
+
+  name   = var.additional_role_policy.name
+  role   = aws_iam_role.lambda.id
+  policy = var.additional_role_policy.document
+}
+
 resource "aws_lambda_function" "this" {
   filename         = data.archive_file.lambda.output_path
   function_name    = var.name
@@ -33,6 +41,7 @@ resource "aws_lambda_function" "this" {
   handler          = var.handler
   source_code_hash = data.archive_file.lambda.output_base64sha256
   runtime          = var.runtime
+  timeout          = var.timeout
 
   dynamic "environment" {
     for_each = length(var.environment) > 0 ? [1] : []
@@ -98,6 +107,14 @@ resource "aws_apigatewayv2_route" "root_get" {
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
+resource "aws_apigatewayv2_route" "produce_get" {
+  count = var.create_api_gateway ? 1 : 0
+
+  api_id    = aws_apigatewayv2_api.this[0].id
+  route_key = "GET /produce"
+  target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
+}
+
 resource "aws_apigatewayv2_route" "root_post" {
   count = var.create_api_gateway ? 1 : 0
 
@@ -110,7 +127,7 @@ resource "aws_apigatewayv2_stage" "default" {
   count = var.create_api_gateway ? 1 : 0
 
   api_id      = aws_apigatewayv2_api.this[0].id
-  name        = "$default"
+  name        = "prod"
   auto_deploy = true
 }
 

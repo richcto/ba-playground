@@ -27,9 +27,3 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t3.micro"
 }
-
-variable "kafka_bootstrap_servers" {
-  description = "Kafka bootstrap servers for the Terraform Kafka provider (e.g. from terraform output -raw kafka_bootstrap_servers)"
-  type        = string
-  default     = ""
-}

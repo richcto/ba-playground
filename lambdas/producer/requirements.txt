@@ -1,4 +1,1 @@
-# Kafka producer Lambda dependencies
-# Add packages here as needed, e.g.:
-# aiokafka
-# kafka-python
+kafka-python>=2.0.2

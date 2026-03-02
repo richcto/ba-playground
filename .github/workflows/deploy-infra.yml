@@ -1,0 +1,126 @@
+name: Deploy Infra
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Plan only or Plan and Apply'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+      destroy:
+        description: 'Destroy instead of apply'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: eu-west-2
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_ROLE_NAME: ${{ vars.AWS_ROLE_NAME }}
+
+jobs:
+  plan:
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply'))
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build Lambda packages
+        run: |
+          for lambda in producer consumer; do
+            mkdir -p infra/build/$lambda
+            cp lambdas/$lambda/*.py infra/build/$lambda/ 2>/dev/null || true
+            pip install -r lambdas/$lambda/requirements.txt -t infra/build/$lambda/ --quiet
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: infra
+        env:
+          TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+        run: |
+          if [ "${{ github.event.inputs.destroy }}" = "true" ]; then
+            terraform plan -destroy -no-color -input=false 2>&1 | tee plan.txt
+          else
+            terraform plan -no-color -out=tfplan -input=false 2>&1 | tee plan.txt
+          fi
+
+      - name: Terraform Apply
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy != 'true'
+        working-directory: infra
+        env:
+          TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+        run: terraform apply -auto-approve -input=false tfplan
+
+  destroy:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy == 'true'
+    runs-on: ubuntu-latest
+    environment: apply
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: infra
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: infra
+        env:
+          TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+        run: terraform destroy -auto-approve -input=false
