@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "TicketPurchase",
+  "namespace": "com.example.ticket",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "customer_id", "type": ["null", "string"], "default": null},
+    {"name": "event_id", "type": "string"},
+    {"name": "quantity", "type": "long"},
+    {"name": "purchased_at", "type": "string"}
+  ]
+}
