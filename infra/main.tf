@@ -57,7 +57,8 @@ module "producer" {
   source_dir         = "${path.module}/build/producer"
   create_api_gateway = true
   environment = {
-    KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
+    KAFKA_BOOTSTRAP_SERVERS   = module.ec2_kafka.kafka_bootstrap_servers
+    SCHEMA_REGISTRY_URL       = module.ec2_schema_registry.schema_registry_url
   }
 }
 
@@ -69,8 +70,9 @@ module "consumer" {
   source_dir = "${path.module}/build/consumer"
   timeout    = 15
   environment = {
-    KAFKA_BOOTSTRAP_SERVERS = module.ec2_kafka.kafka_bootstrap_servers
-    OFFSETS_TABLE_NAME      = aws_dynamodb_table.consumer_offsets.name
+    KAFKA_BOOTSTRAP_SERVERS   = module.ec2_kafka.kafka_bootstrap_servers
+    SCHEMA_REGISTRY_URL       = module.ec2_schema_registry.schema_registry_url
+    OFFSETS_TABLE_NAME        = aws_dynamodb_table.consumer_offsets.name
   }
   additional_role_policy = {
     name     = "dynamodb-offsets"
