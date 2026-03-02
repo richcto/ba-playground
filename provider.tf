@@ -27,7 +27,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-# provider "kafka" {
-#   bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
-#   tls_enabled      = false
-# }
+provider "kafka" {
+  bootstrap_servers = length(var.kafka_bootstrap_servers) > 0 ? [var.kafka_bootstrap_servers] : ["localhost:9092"]
+  tls_enabled      = false
+}
