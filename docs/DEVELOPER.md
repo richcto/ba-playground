@@ -45,6 +45,7 @@ BA/
 for lambda in producer consumer; do
   mkdir -p infra/build/$lambda
   cp lambdas/$lambda/*.py infra/build/$lambda/ 2>/dev/null || true
+  [ "$lambda" = "producer" ] && mkdir -p infra/build/$lambda/schemas && cp schemas/*.avsc infra/build/$lambda/schemas/
   pip install -r lambdas/$lambda/requirements.txt -t infra/build/$lambda/ --quiet
 done
 ```

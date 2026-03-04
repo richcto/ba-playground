@@ -19,14 +19,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger().setLevel(logging.DEBUG)
 
-# TicketPurchase Avro schema - load canonical schema from .avsc file
-SCHEMA_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "schemas",
-    "ticket-purchases-value.avsc",
-)
+# TicketPurchase Avro schema - loaded from schemas/ (copied into Lambda package at build time)
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schemas", "ticket-purchases-value.avsc")
 with open(SCHEMA_PATH, encoding="utf-8") as _schema_file:
     VALUE_SCHEMA = _schema_file.read()
 
