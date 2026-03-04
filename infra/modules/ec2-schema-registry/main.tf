@@ -82,6 +82,15 @@ resource "aws_security_group" "schema_registry" {
     cidr_blocks = var.ingress_cidr_blocks
   }
 
+  # Allow in-VPC clients (Lambda) - source_sg can fail with Lambda hyperplane ENIs
+  ingress {
+    description = "Schema Registry from VPC (Lambda)"
+    from_port   = 8081
+    to_port     = 8081
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
+  }
+
   ingress {
     description = "SSH"
     from_port   = 22

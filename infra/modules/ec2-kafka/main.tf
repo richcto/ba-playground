@@ -98,6 +98,15 @@ resource "aws_security_group" "ec2_kafka" {
     cidr_blocks = var.ingress_cidr_blocks
   }
 
+  # Allow in-VPC clients (Lambda) - source_sg can fail with Lambda hyperplane ENIs
+  ingress {
+    description = "Kafka INTERNAL from VPC (Lambda)"
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
+  }
+
   ingress {
     description = "Kafka CONTROLLER (KRaft broker-to-controller, self)"
     from_port   = 9093
