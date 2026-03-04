@@ -13,9 +13,9 @@ import os
 
 import boto3
 from confluent_kafka import TopicPartition
+from confluent_kafka.deserializing_consumer import DeserializingConsumer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
-from confluent_kafka.deserializing_consumer import DeserializingConsumer
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -58,21 +58,32 @@ def _deserialize_value(value):
     return value
 
 
+def _http_response(status_code: int, body: dict) -> dict:
+    """Build API Gateway HTTP API response."""
+    return {
+        "statusCode": status_code,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(body),
+    }
+
+
 def handler(event, context):
-    """Lambda handler for Kafka consumer."""
+    """Lambda handler for Kafka consumer. Supports direct invoke or API Gateway."""
     logger.debug("Consumer invoked, event: %s", event)
 
-    topic = event.get("topic")
+    # API Gateway: topic from path parameter GET /consume/{topic}
+    path_params = event.get("pathParameters") or {}
+    topic = path_params.get("topic") or event.get("topic")
     if not topic:
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing topic in event payload"})}
+        return _http_response(400, {"error": "Missing topic. Use GET /consume/{topic} or pass topic in payload"})
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
     if not bootstrap_servers:
-        return {"statusCode": 500, "body": json.dumps({"error": "Kafka not configured"})}
+        return _http_response(500, {"error": "Kafka not configured"})
 
     table_name = os.environ.get("OFFSETS_TABLE_NAME")
     if not table_name:
-        return {"statusCode": 500, "body": json.dumps({"error": "Offsets table not configured"})}
+        return _http_response(500, {"error": "Offsets table not configured"})
 
     schema_registry_url = os.environ.get("SCHEMA_REGISTRY_URL")
     use_schema = schema_registry_url and topic == "ticket-purchases"
@@ -97,7 +108,7 @@ def handler(event, context):
         if topic not in metadata.topics:
             logger.warning("Topic %s does not exist", topic)
             consumer.close()
-            return {"statusCode": 200, "body": json.dumps({"topic": topic, "messages": []})}
+            return _http_response(200, {"topic": topic, "messages": []})
 
         partition_ids = list(metadata.topics[topic].partitions.keys())
         partitions = [TopicPartition(topic, p) for p in partition_ids]
@@ -139,9 +150,6 @@ def handler(event, context):
         logger.info("Consumed %d message(s) from topic=%s", len(messages), topic)
     except Exception as e:
         logger.exception("Failed to consume from Kafka: %s", e)
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return _http_response(500, {"error": str(e)})
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"topic": topic, "messages": messages}),
-    }
+    return _http_response(200, {"topic": topic, "messages": messages})

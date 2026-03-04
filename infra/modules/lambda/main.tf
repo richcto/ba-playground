@@ -130,6 +130,14 @@ resource "aws_apigatewayv2_route" "root_post" {
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
+resource "aws_apigatewayv2_route" "custom" {
+  for_each = var.create_api_gateway && length(var.api_routes) > 0 ? toset(var.api_routes) : []
+
+  api_id    = aws_apigatewayv2_api.this[0].id
+  route_key = each.value
+  target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   count = var.create_api_gateway ? 1 : 0
 

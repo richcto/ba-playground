@@ -95,7 +95,8 @@ Set `kafka_ingress_mode=public` in workflow_dispatch when running the Kafka pipe
 
 ```bash
 terraform -chdir=infra output
-# producer_api_url      – API Gateway base URL
+# producer_api_url      – Producer API (POST /produce)
+# consumer_api_url      – Consumer API (GET /consume/{topic})
 # schema_registry_url   – Schema Registry URL
 # kafka_bootstrap_servers – Kafka EXTERNAL listener (public_ip:9094)
 ```

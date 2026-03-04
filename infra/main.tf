@@ -122,6 +122,8 @@ module "consumer" {
 
   name               = "kafka-consumer"
   source_dir         = "${path.module}/build/consumer"
+  create_api_gateway = true
+  api_routes         = ["GET /consume/{topic}"]
   timeout            = 15
   subnet_ids         = data.aws_subnets.default.ids
   security_group_ids = [aws_security_group.lambda.id]

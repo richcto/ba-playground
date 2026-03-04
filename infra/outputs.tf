@@ -30,6 +30,11 @@ output "consumer_function_name" {
   value       = module.consumer.function_name
 }
 
+output "consumer_api_url" {
+  description = "Consumer API Gateway URL (GET /consume/{topic})"
+  value       = module.consumer.api_url
+}
+
 # Schema Registry
 output "schema_registry_url" {
   description = "Schema Registry URL"
