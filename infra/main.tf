@@ -49,22 +49,6 @@ resource "aws_security_group_rule" "schema_registry_from_lambda" {
   description              = "Schema Registry from Lambda"
 }
 
-# DynamoDB table for Kafka consumer offsets (avoids Kafka consumer group coordinator)
-resource "aws_dynamodb_table" "consumer_offsets" {
-  name         = "${var.name_prefix}-kafka-consumer-offsets"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "topic_partition"
-
-  attribute {
-    name = "topic_partition"
-    type = "S"
-  }
-
-  tags = {
-    Name = "${var.name_prefix}-kafka-consumer-offsets"
-  }
-}
-
 # EC2 Kafka (default VPC)
 module "ec2_kafka" {
   source = "./modules/ec2-kafka"
@@ -117,6 +101,7 @@ module "producer" {
 }
 
 # Lambda consumer - in VPC to reach Kafka/Schema Registry via private IPs
+# Uses Kafka consumer groups for offset storage (no DynamoDB)
 module "consumer" {
   source = "./modules/lambda"
 
@@ -130,19 +115,5 @@ module "consumer" {
   environment = {
     KAFKA_BOOTSTRAP_SERVERS = "${module.ec2_kafka.kafka_private_ip}:9092"
     SCHEMA_REGISTRY_URL     = module.ec2_schema_registry.schema_registry_private_url
-    OFFSETS_TABLE_NAME      = aws_dynamodb_table.consumer_offsets.name
-  }
-  additional_role_policy = {
-    name = "dynamodb-offsets"
-    document = jsonencode({
-      Version = "2012-10-17"
-      Statement = [
-        {
-          Effect   = "Allow"
-          Action   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query"]
-          Resource = [aws_dynamodb_table.consumer_offsets.arn]
-        }
-      ]
-    })
   }
 }

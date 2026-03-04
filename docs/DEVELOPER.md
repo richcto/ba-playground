@@ -7,14 +7,14 @@ This project provides a Kafka-based messaging system with:
 - **EC2 Kafka** – Single-node Apache Kafka (KRaft) with dual listeners (internal/external)
 - **Schema Registry** – Confluent Schema Registry for Avro schema enforcement
 - **Producer Lambda** – API Gateway HTTP API that produces messages to Kafka
-- **Consumer Lambda** – Consumes from Kafka topics, uses DynamoDB for offset storage
+- **Consumer Lambda** – Consumes from Kafka topics, uses consumer groups for offset storage
 - **Terraform** – Infrastructure as code split into `infra/` and `kafka/` directories
 
 ## Project Structure
 
 ```
 BA/
-├── infra/                 # AWS infrastructure (EC2, Lambdas, DynamoDB)
+├── infra/                 # AWS infrastructure (EC2, Lambdas)
 │   ├── main.tf
 │   ├── modules/
 │   │   ├── ec2-kafka/

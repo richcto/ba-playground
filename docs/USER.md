@@ -145,4 +145,4 @@ Replace `ticket-purchases` with any topic name. Example response:
 }
 ```
 
-The consumer polls for up to ~2 seconds and returns available messages. Offsets are stored in DynamoDB so subsequent calls continue from where you left off.
+The consumer polls for up to ~2 seconds and returns available messages. Offsets are stored in Kafka's consumer group so subsequent calls continue from where you left off.

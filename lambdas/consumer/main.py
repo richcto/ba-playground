@@ -2,17 +2,16 @@
 Kafka Consumer Lambda handler.
 
 Consumes messages from a Kafka topic specified in the event payload.
-Uses DynamoDB for offset storage (avoids Kafka consumer group coordinator).
+Uses Kafka consumer groups for offset storage (conventional approach).
 For ticket-purchases: deserializes Avro using Schema Registry.
-Event format: {"topic": "topic-name"}
+Event format: {"topic": "topic-name"} or GET /consume/{topic}
 """
 
 import json
 import logging
 import os
+import time
 
-import boto3
-from confluent_kafka import TopicPartition
 from confluent_kafka.deserializing_consumer import DeserializingConsumer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
@@ -20,31 +19,6 @@ from confluent_kafka.schema_registry.avro import AvroDeserializer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger().setLevel(logging.DEBUG)
-
-
-def _get_offset(table, topic: str, partition: int) -> int | None:
-    """Read stored offset from DynamoDB. Returns None if not found."""
-    try:
-        r = table.get_item(Key={"topic_partition": f"{topic}#{partition}"})
-        item = r.get("Item")
-        if item and "offset" in item:
-            return int(item["offset"])
-    except Exception as e:
-        logger.warning("Failed to read offset for %s#%s: %s", topic, partition, e)
-    return None
-
-
-def _put_offset(table, topic: str, partition: int, offset: int) -> None:
-    """Write offset to DynamoDB."""
-    try:
-        table.put_item(
-            Item={
-                "topic_partition": f"{topic}#{partition}",
-                "offset": offset,
-            }
-        )
-    except Exception as e:
-        logger.warning("Failed to write offset for %s#%s: %s", topic, partition, e)
 
 
 def _deserialize_value(value):
@@ -81,19 +55,13 @@ def handler(event, context):
     if not bootstrap_servers:
         return _http_response(500, {"error": "Kafka not configured"})
 
-    table_name = os.environ.get("OFFSETS_TABLE_NAME")
-    if not table_name:
-        return _http_response(500, {"error": "Offsets table not configured"})
-
     schema_registry_url = os.environ.get("SCHEMA_REGISTRY_URL")
     use_schema = schema_registry_url and topic == "ticket-purchases"
 
     try:
-        table = boto3.resource("dynamodb").Table(table_name)
-
         conf = {
             "bootstrap.servers": bootstrap_servers,
-            "group.id": "lambda-consumer-api",  # Required by librdkafka; we use DynamoDB for offsets
+            "group.id": "lambda-consumer-api",
             "enable.auto.commit": False,
             "session.timeout.ms": 6000,
         }
@@ -111,20 +79,11 @@ def handler(event, context):
             consumer.close()
             return _http_response(200, {"topic": topic, "messages": []})
 
-        partition_ids = list(metadata.topics[topic].partitions.keys())
-        partitions = [TopicPartition(topic, p) for p in partition_ids]
-        consumer.assign(partitions)
-
-        for tp in partitions:
-            stored = _get_offset(table, topic, tp.partition)
-            if stored is not None:
-                consumer.seek(tp, stored)
-            else:
-                consumer.seek(tp, 0)
+        consumer.subscribe([topic])
 
         messages = []
-        deadline = __import__("time").time() + 2.0
-        while __import__("time").time() < deadline:
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
             msg = consumer.poll(timeout=1.0)
             if msg is None:
                 continue
@@ -142,11 +101,7 @@ def handler(event, context):
             })
             logger.info("Consumed partition=%s offset=%s value=%s", msg.partition(), msg.offset(), value)
 
-        for tp in partitions:
-            tps = consumer.position([tp])
-            if tps:
-                _put_offset(table, topic, tp.partition, tps[0].offset)
-
+        consumer.commit()
         consumer.close()
         logger.info("Consumed %d message(s) from topic=%s", len(messages), topic)
     except Exception as e:
