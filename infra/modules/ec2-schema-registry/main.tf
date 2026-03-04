@@ -118,7 +118,7 @@ resource "aws_instance" "schema_registry" {
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit  = 1
+    http_put_response_hop_limit = 1
   }
 }
 

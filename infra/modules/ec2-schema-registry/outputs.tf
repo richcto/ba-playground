@@ -9,8 +9,13 @@ output "public_ip" {
 }
 
 output "schema_registry_url" {
-  description = "Schema Registry URL"
+  description = "Schema Registry URL (public, for laptop/Postman)"
   value       = "http://${aws_eip.schema_registry.public_ip}:8081"
+}
+
+output "schema_registry_private_url" {
+  description = "Schema Registry URL (private, for Lambdas in VPC)"
+  value       = "http://${aws_instance.schema_registry.private_ip}:8081"
 }
 
 output "security_group_id" {
