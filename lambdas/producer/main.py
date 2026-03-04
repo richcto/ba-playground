@@ -1,19 +1,18 @@
 """
 Kafka Producer Lambda handler.
 
-Accepts GET requests via API Gateway.
-Query params: topic (required), message (required).
-For ticket-purchases topic: message must be JSON matching TicketPurchase schema.
+Accepts POST requests via API Gateway.
+Body (JSON): {"topic": "topic-name", "message": {...}}.
+For ticket-purchases topic: message must be object matching TicketPurchase schema.
 """
 
 import json
 import logging
 import os
-from urllib.parse import parse_qs
 
-from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.serialization import StringSerializer
 from confluent_kafka.serializing_producer import SerializingProducer
 
 logger = logging.getLogger(__name__)
@@ -28,41 +27,36 @@ SCHEMA_PATH = os.path.join(
     "schemas",
     "ticket-purchases-value.avsc",
 )
-with open(SCHEMA_PATH, "r", encoding="utf-8") as _schema_file:
+with open(SCHEMA_PATH, encoding="utf-8") as _schema_file:
     VALUE_SCHEMA = _schema_file.read()
-
-
-def _get_query_params(event):
-    """Extract query params from API Gateway event."""
-    params = event.get("queryStringParameters")
-    if params is not None:
-        return dict(params)
-    raw = event.get("rawQueryString")
-    if raw:
-        parsed = parse_qs(raw, keep_blank_values=True)
-        return {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
-    return {}
 
 
 def handler(event, context):
     """Lambda handler for Kafka producer API."""
     logger.debug("Producer invoked, event keys: %s", list(event.keys()))
-    http_method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
-    if http_method == "GET":
-        return handle_get(event)
+    http_method = event.get("requestContext", {}).get("http", {}).get("method", "POST")
+    if http_method == "POST":
+        return handle_post(event)
     return response(405, {"error": f"Method {http_method} not allowed"})
 
 
-def handle_get(event):
-    """Handle GET requests - produce message to Kafka topic from query params."""
-    query_params = _get_query_params(event)
-    topic = query_params.get("topic")
-    message = query_params.get("message")
+def handle_post(event):
+    """Handle POST requests - produce message to Kafka topic from JSON body."""
+    body = event.get("body")
+    if not body:
+        return response(400, {"error": "Missing request body"})
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError as e:
+        return response(400, {"error": f"Invalid JSON body: {e}"})
+
+    topic = data.get("topic")
+    message = data.get("message")
 
     if not topic:
-        return response(400, {"error": "Missing required query parameter: topic"})
+        return response(400, {"error": "Missing required field: topic"})
     if message is None:
-        return response(400, {"error": "Missing required query parameter: message"})
+        return response(400, {"error": "Missing required field: message"})
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
     if not bootstrap_servers:
@@ -72,15 +66,18 @@ def handle_get(event):
     use_schema = schema_registry_url and topic == "ticket-purchases"
 
     if use_schema:
-        try:
-            value_dict = json.loads(message)
-            # Ensure types match schema
-            if "quantity" in value_dict:
-                value_dict["quantity"] = int(value_dict["quantity"])
-        except json.JSONDecodeError as e:
-            return response(400, {"error": f"Invalid JSON message: {e}"})
+        if isinstance(message, dict):
+            value_dict = message.copy()
+        else:
+            try:
+                value_dict = json.loads(message) if isinstance(message, str) else message
+            except (json.JSONDecodeError, TypeError):
+                return response(400, {"error": "Message must be JSON object for ticket-purchases topic"})
+        # Ensure types match schema
+        if "quantity" in value_dict:
+            value_dict["quantity"] = int(value_dict["quantity"])
     else:
-        value_dict = message
+        value_dict = message if isinstance(message, str) else json.dumps(message)
 
     try:
         if use_schema:
@@ -99,7 +96,7 @@ def handle_get(event):
                 "bootstrap.servers": bootstrap_servers,
                 "value.serializer": _str_serializer,
             })
-            producer.produce(topic=topic, value=message)
+            producer.produce(topic=topic, value=value_dict)
 
         producer.flush()
         logger.info("Successfully produced message to topic=%s", topic)
