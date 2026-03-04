@@ -66,7 +66,7 @@ locals {
     # INTERNAL (9092): Schema Registry, in-VPC clients - advertised as private IP
     # EXTERNAL (9094): Laptop, Lambdas, tools - advertised as public IP
     docker run -d --name kafka --restart unless-stopped \
-      -p 9092:9092 -p 9094:9094 \
+      -p 9092:9092 -p 9093:9093 -p 9094:9094 \
       -e KAFKA_NODE_ID=1 \
       -e KAFKA_PROCESS_ROLES=broker,controller \
       -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@$${PRIVATE_IP}:9093 \
@@ -96,6 +96,14 @@ resource "aws_security_group" "ec2_kafka" {
     to_port     = 9092
     protocol    = "tcp"
     cidr_blocks = var.ingress_cidr_blocks
+  }
+
+  ingress {
+    description = "Kafka CONTROLLER (KRaft broker-to-controller, self)"
+    from_port   = 9093
+    to_port     = 9093
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
   }
 
   ingress {
