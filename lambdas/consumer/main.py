@@ -64,6 +64,7 @@ def handler(event, context):
             "group.id": "lambda-consumer-api",
             "enable.auto.commit": False,
             "session.timeout.ms": 6000,
+            "auto.offset.reset": "earliest",  # Read from start when no committed offset
         }
         if use_schema:
             sr_client = SchemaRegistryClient({"url": schema_registry_url})
@@ -82,7 +83,7 @@ def handler(event, context):
         consumer.subscribe([topic])
 
         messages = []
-        deadline = time.time() + 2.0
+        deadline = time.time() + 8.0  # Allow time for group join + partition assignment
         while time.time() < deadline:
             msg = consumer.poll(timeout=1.0)
             if msg is None:
