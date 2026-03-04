@@ -1,0 +1,104 @@
+# Developer Documentation
+
+## Overview
+
+This project provides a Kafka-based messaging system with:
+
+- **EC2 Kafka** – Single-node Apache Kafka (KRaft) with dual listeners (internal/external)
+- **Schema Registry** – Confluent Schema Registry for Avro schema enforcement
+- **Producer Lambda** – API Gateway HTTP API that produces messages to Kafka
+- **Consumer Lambda** – Consumes from Kafka topics, uses DynamoDB for offset storage
+- **Terraform** – Infrastructure as code split into `infra/` and `kafka/` directories
+
+## Project Structure
+
+```
+BA/
+├── infra/                 # AWS infrastructure (EC2, Lambdas, DynamoDB)
+│   ├── main.tf
+│   ├── modules/
+│   │   ├── ec2-kafka/
+│   │   ├── ec2-schema-registry/
+│   │   └── lambda/
+│   └── build/             # Lambda packages (generated, not committed)
+├── kafka/                 # Kafka topic management (separate state)
+├── lambdas/
+│   ├── producer/          # Producer Lambda code
+│   └── consumer/          # Consumer Lambda code
+├── schemas/               # Avro schemas for ticket-purchases
+├── scripts/               # Schema registration, listing
+└── .github/workflows/     # deploy-infra.yml, deploy-kafka.yml
+```
+
+## Prerequisites
+
+- Terraform >= 1.0
+- Python 3.12
+- AWS CLI (for local runs)
+- jq (for schema scripts)
+
+## Local Development
+
+### Build Lambda packages
+
+```bash
+for lambda in producer consumer; do
+  mkdir -p infra/build/$lambda
+  cp lambdas/$lambda/*.py infra/build/$lambda/ 2>/dev/null || true
+  pip install -r lambdas/$lambda/requirements.txt -t infra/build/$lambda/ --quiet
+done
+```
+
+### Terraform
+
+```bash
+cd infra
+terraform init
+terraform plan
+terraform apply
+```
+
+### Register schemas (after infra is deployed)
+
+```bash
+SCHEMA_REGISTRY_URL=$(terraform -chdir=infra output -raw schema_registry_url)
+./scripts/register-schemas.sh "$SCHEMA_REGISTRY_URL"
+```
+
+### Kafka topics (separate workflow)
+
+Run the `deploy-kafka` workflow (workflow_dispatch) after EC2 Kafka is up to create the `ticket-purchases` topic.
+
+## Schemas
+
+- **ticket-purchases-key**: string (order_id)
+- **ticket-purchases-value**: `TicketPurchase` record with `order_id`, `customer_id`, `event_id`, `quantity`, `purchased_at`
+
+See `schemas/README.md` for schema details and registration commands.
+
+## Workflows
+
+| Workflow       | Trigger              | Purpose                          |
+|----------------|----------------------|----------------------------------|
+| deploy-infra   | PR, workflow_dispatch | Plan/apply/destroy AWS infra   |
+| deploy-kafka   | workflow_dispatch    | Create Kafka topics              |
+
+### Kafka ingress mode
+
+- **restricted** (default): Only your IP can access Kafka and Schema Registry (ports 9092, 9094, 8081)
+- **public**: Open to 0.0.0.0/0 (for GitHub Actions, Lambdas)
+
+Set `kafka_ingress_mode=public` in workflow_dispatch when running the Kafka pipeline.
+
+## Key Outputs
+
+```bash
+terraform -chdir=infra output
+# producer_api_url      – API Gateway base URL
+# schema_registry_url   – Schema Registry URL
+# kafka_bootstrap_servers – Kafka EXTERNAL listener (public_ip:9094)
+```
+
+## Migration
+
+See `MIGRATION.md` for state migration when moving between root and infra/kafka layout.

@@ -1,7 +1,8 @@
-# README.md
+# BA – Kafka Messaging Platform
 
-# Test schema registry to kafka
+Kafka-based messaging with Schema Registry, producer API, and consumer.
 
-```bash
-docker run --rm edenhill/kcat:1.7.1 -b 172.31.5.51:9092 -L
-```
+## Documentation
+
+- **[User Guide](docs/USER.md)** – Submit messages with Postman
+- **[Developer Guide](docs/DEVELOPER.md)** – Project structure, local dev, Terraform
