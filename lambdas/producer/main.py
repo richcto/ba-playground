@@ -20,21 +20,16 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.getLogger().setLevel(logging.DEBUG)
 
-# TicketPurchase Avro schema (must match Schema Registry)
-VALUE_SCHEMA = """
-{
-  "type": "record",
-  "name": "TicketPurchase",
-  "namespace": "com.example.ticket",
-  "fields": [
-    {"name": "order_id", "type": "string"},
-    {"name": "customer_id", "type": ["null", "string"], "default": null},
-    {"name": "event_id", "type": "string"},
-    {"name": "quantity", "type": "long"},
-    {"name": "purchased_at", "type": "string"}
-  ]
-}
-"""
+# TicketPurchase Avro schema - load canonical schema from .avsc file
+SCHEMA_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "..",
+    "schemas",
+    "ticket-purchases-value.avsc",
+)
+with open(SCHEMA_PATH, "r", encoding="utf-8") as _schema_file:
+    VALUE_SCHEMA = _schema_file.read()
 
 
 def _get_query_params(event):
