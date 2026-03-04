@@ -93,6 +93,7 @@ def handler(event, context):
 
         conf = {
             "bootstrap.servers": bootstrap_servers,
+            "group.id": "lambda-consumer-api",  # Required by librdkafka; we use DynamoDB for offsets
             "enable.auto.commit": False,
             "session.timeout.ms": 6000,
         }
