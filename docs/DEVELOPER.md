@@ -91,6 +91,16 @@ See `schemas/README.md` for schema details and registration commands.
 
 Set `kafka_ingress_mode=public` in workflow_dispatch when running the Kafka pipeline.
 
+### Kafka memory tuning (t3.micro / small instances)
+
+If Kafka becomes unresponsive, tune via Terraform variables:
+
+```bash
+terraform apply -var="kafka_heap_opts=-Xms256m -Xmx384m" -var="kafka_docker_memory_mb=512"
+```
+
+For t3.small (2GB): `kafka_heap_opts=-Xms512m -Xmx1g`, `kafka_docker_memory_mb=1024`
+
 ## Key Outputs
 
 ```bash

@@ -53,10 +53,12 @@ resource "aws_security_group_rule" "schema_registry_from_lambda" {
 module "ec2_kafka" {
   source = "./modules/ec2-kafka"
 
-  name_prefix         = var.name_prefix
-  aws_region          = var.aws_region
-  instance_type       = var.ec2_instance_type
-  ingress_cidr_blocks = var.kafka_ingress_mode == "restricted" ? ["${var.kafka_allowed_ip}/32"] : ["0.0.0.0/0"]
+  name_prefix            = var.name_prefix
+  aws_region             = var.aws_region
+  instance_type          = var.ec2_instance_type
+  ingress_cidr_blocks    = var.kafka_ingress_mode == "restricted" ? ["${var.kafka_allowed_ip}/32"] : ["0.0.0.0/0"]
+  kafka_heap_opts        = var.kafka_heap_opts
+  kafka_docker_memory_mb = var.kafka_docker_memory_mb
 }
 
 # Allow Schema Registry to connect to Kafka on INTERNAL listener (9092)

@@ -25,3 +25,15 @@ variable "ingress_cidr_blocks" {
   type        = list(string)
 }
 
+variable "kafka_heap_opts" {
+  description = "JVM heap options for Kafka (e.g. -Xms256m -Xmx384m for t3.micro)"
+  type        = string
+  default     = "-Xms256m -Xmx384m"
+}
+
+variable "kafka_docker_memory_mb" {
+  description = "Docker container memory limit in MB"
+  type        = number
+  default     = 512
+}
+

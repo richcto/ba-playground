@@ -65,8 +65,11 @@ locals {
     # Run Kafka (Apache Kafka KRaft) with dual listeners:
     # INTERNAL (9092): Schema Registry, in-VPC clients - advertised as private IP
     # EXTERNAL (9094): Laptop, Lambdas, tools - advertised as public IP
+    # Memory tuning for small instances: heap limit + container memory cap
     docker run -d --name kafka --restart unless-stopped \
+      --memory ${var.kafka_docker_memory_mb}m \
       -p 9092:9092 -p 9093:9093 -p 9094:9094 \
+      -e KAFKA_HEAP_OPTS="${var.kafka_heap_opts}" \
       -e KAFKA_NODE_ID=1 \
       -e KAFKA_PROCESS_ROLES=broker,controller \
       -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@$${PRIVATE_IP}:9093 \
@@ -78,6 +81,10 @@ locals {
       -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
       -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 \
       -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1 \
+      -e KAFKA_NUM_NETWORK_THREADS=2 \
+      -e KAFKA_NUM_IO_THREADS=2 \
+      -e KAFKA_LOG_RETENTION_HOURS=24 \
+      -e KAFKA_LOG_SEGMENT_BYTES=10485760 \
       apache/kafka:3.9.0
 
     echo "Kafka started: INTERNAL $${PRIVATE_IP}:9092, EXTERNAL $${PUBLIC_IP}:9094"
