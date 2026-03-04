@@ -36,6 +36,11 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.schema_registry.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_instance_profile" "schema_registry" {
   name = "${var.name_prefix}-ec2-schema-registry-profile"
   role = aws_iam_role.schema_registry.name
@@ -49,9 +54,30 @@ locals {
     exec > >(tee /var/log/user-data.log) 2>&1
 
     yum update -y
-    yum install -y docker
+    yum install -y docker amazon-cloudwatch-agent
     systemctl start docker
     systemctl enable docker
+
+    # CloudWatch agent config for memory monitoring
+    mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+    cat > /opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json << 'CWEOF'
+{
+  "metrics": {
+    "namespace": "BA/SchemaRegistry",
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_available", "mem_used"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}
+CWEOF
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json
 
     # Wait for Kafka to be ready
     sleep 90

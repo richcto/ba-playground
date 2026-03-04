@@ -101,6 +101,14 @@ terraform apply -var="kafka_heap_opts=-Xms256m -Xmx384m" -var="kafka_docker_memo
 
 For t3.small (2GB): `kafka_heap_opts=-Xms512m -Xmx1g`, `kafka_docker_memory_mb=1024`
 
+### CloudWatch memory metrics
+
+CloudWatch agent runs on both Kafka and Schema Registry EC2 instances. Metrics are in:
+- **BA/Kafka** – Kafka instance (mem_used_percent, mem_available, mem_used, disk_used_percent)
+- **BA/SchemaRegistry** – Schema Registry instance
+
+In CloudWatch → Metrics → Custom namespaces → BA/Kafka or BA/SchemaRegistry.
+
 ## Key Outputs
 
 ```bash

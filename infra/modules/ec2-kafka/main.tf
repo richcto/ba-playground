@@ -36,6 +36,11 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.ec2_kafka.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_instance_profile" "ec2_kafka" {
   name = "${var.name_prefix}-ec2-kafka-profile"
   role = aws_iam_role.ec2_kafka.name
@@ -48,11 +53,32 @@ locals {
     set -e
     exec > >(tee /var/log/user-data.log) 2>&1
 
-    # Install Docker
+    # Install Docker and CloudWatch agent
     yum update -y
-    yum install -y docker
+    yum install -y docker amazon-cloudwatch-agent
     systemctl start docker
     systemctl enable docker
+
+    # CloudWatch agent config for memory monitoring
+    mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+    cat > /opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json << 'CWEOF'
+{
+  "metrics": {
+    "namespace": "BA/Kafka",
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_available", "mem_used"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "metrics_collection_interval": 60
+      }
+    }
+  }
+}
+CWEOF
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json
 
     # Wait for Elastic IP to be attached by Terraform
     sleep 90
