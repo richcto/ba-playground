@@ -59,25 +59,9 @@ locals {
     systemctl start docker
     systemctl enable docker
 
-    # CloudWatch agent config for memory monitoring
+    # CloudWatch agent config for memory monitoring (Python avoids nested heredoc issues)
     mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
-    cat > /opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json << 'CWEOF'
-{
-  "metrics": {
-    "namespace": "BA/Kafka",
-    "metrics_collected": {
-      "mem": {
-        "measurement": ["mem_used_percent", "mem_available", "mem_used"],
-        "metrics_collection_interval": 60
-      },
-      "disk": {
-        "measurement": ["disk_used_percent"],
-        "metrics_collection_interval": 60
-      }
-    }
-  }
-}
-CWEOF
+    python3 -c 'import json; json.dump({"metrics":{"namespace":"BA/Kafka","metrics_collected":{"mem":{"measurement":["mem_used_percent","mem_available","mem_used"],"metrics_collection_interval":60},"disk":{"measurement":["disk_used_percent"],"metrics_collection_interval":60}}}}, open("/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json","w"), indent=2)'
     /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json
 
     # Wait for Elastic IP to be attached by Terraform
