@@ -1,0 +1,48 @@
+services:
+  backstage:
+    image: ghcr.io/backstage/backstage:latest
+    env_file: .env
+    ports:
+      - "7007:7007"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-backstage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
+      POSTGRES_DB: ${POSTGRES_DB:-backstage}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      APP_CONFIG_backend_database_client: pg
+      APP_CONFIG_backend_database_connection_host: postgres
+      APP_CONFIG_backend_database_connection_user: ${POSTGRES_USER:-backstage}
+      APP_CONFIG_backend_database_connection_password: ${POSTGRES_PASSWORD:-backstage}
+      APP_CONFIG_backend_database_connection_database: ${POSTGRES_DB:-backstage}
+    command: ["sh", "-c", "if [ -n \"$$GITHUB_TOKEN\" ]; then echo '[DEBUG] GITHUB_TOKEN: set'; else echo '[DEBUG] GITHUB_TOKEN: NOT SET or empty'; fi; exec node packages/backend --config app-config.yaml --config app-config.production.yaml --config app-config.override.yaml"]
+    volumes:
+      - ./app-config.yaml:/app/app-config.yaml:ro
+      - ./app-config.override.yaml:/app/app-config.override.yaml:ro
+      - ./templates:/app/templates:ro
+      - ./catalog:/app/catalog:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7007/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-backstage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
+      POSTGRES_DB: ${POSTGRES_DB:-backstage}
+    volumes:
+      - backstage_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-backstage} -d ${POSTGRES_DB:-backstage}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  backstage_pgdata:

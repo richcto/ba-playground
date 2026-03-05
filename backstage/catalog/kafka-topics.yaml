@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ticket-purchases
+  title: ticket-purchases
+  description: Kafka topic for ticket purchases
+  tags:
+    - kafka
+spec:
+  type: kafka-topic
+  owner: platform
+  system: ba-playground

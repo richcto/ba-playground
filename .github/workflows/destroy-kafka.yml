@@ -1,0 +1,116 @@
+name: Destroy Kafka Topic
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic_name:
+        description: "Topic name to destroy"
+        required: true
+        default: "ticket-purchases"
+
+env:
+  AWS_REGION: eu-west-2
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_ROLE_NAME: ${{ vars.AWS_ROLE_NAME }}
+
+jobs:
+  kafka_destroy:
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/${{ env.AWS_ROLE_NAME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+          terraform_wrapper: false
+
+      - name: Terraform Init (infra) - get bootstrap servers
+        working-directory: infra
+        run: terraform init
+
+      - name: Get Kafka bootstrap servers
+        id: kafka
+        run: |
+          bootstrap=$(cd infra && terraform output -raw kafka_bootstrap_servers 2>/dev/null || echo "")
+          if [ -z "$bootstrap" ]; then
+            echo "::error::kafka_bootstrap_servers output is empty. Deploy infra first."
+            exit 1
+          fi
+          echo "bootstrap=${bootstrap}" >> $GITHUB_OUTPUT
+
+      - name: Wait for Kafka
+        run: |
+          host=$(echo "${{ steps.kafka.outputs.bootstrap }}" | cut -d: -f1)
+          port=$(echo "${{ steps.kafka.outputs.bootstrap }}" | cut -d: -f2)
+          for i in $(seq 1 18); do
+            if timeout 5 bash -c "echo >/dev/tcp/$host/$port" 2>/dev/null; then
+              echo "Kafka is reachable"
+              exit 0
+            fi
+            echo "Waiting for Kafka... ($i/18)"
+            sleep 10
+          done
+          echo "::error::Kafka did not become reachable in 3 minutes"
+          exit 1
+
+      - name: Terraform Init (kafka)
+        working-directory: kafka
+        run: |
+          topic_key=$(echo "${{ github.event.inputs.topic_name || 'ticket-purchases' }}" | tr '.' '-')
+          terraform init -reconfigure -backend-config="key=ba-playground/kafka/${topic_key}.tfstate"
+
+      - name: Terraform Destroy (Kafka topic)
+        working-directory: kafka
+        run: |
+          topic_name="${{ github.event.inputs.topic_name || 'ticket-purchases' }}"
+          terraform destroy -auto-approve -input=false -var="topic_name=${topic_name}"
+
+      - name: Remove topic from catalog
+        env:
+          TOPIC: ${{ github.event.inputs.topic_name || 'ticket-purchases' }}
+        run: |
+          python3 << 'PY'
+          import os
+          topic = os.environ["TOPIC"]
+          with open("backstage/catalog/kafka-topics.yaml", "r") as f:
+            content = f.read()
+          blocks = content.split("\n---\n")
+          out = []
+          for block in blocks:
+            stripped = block.strip()
+            if stripped.startswith("apiVersion:"):
+              if f"name: {topic}" not in block:
+                out.append(block)
+            else:
+              out.append(block)
+          result = "\n---\n".join(out)
+          if not result.strip():
+            result = "# No Kafka topics in catalog\n"
+          with open("backstage/catalog/kafka-topics.yaml", "w") as f:
+            f.write(result)
+          PY
+
+      - name: Commit and push catalog update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backstage/catalog/kafka-topics.yaml
+          if ! git diff --staged --quiet; then
+            git commit -m "Remove Kafka topic from catalog"
+            git push
+          fi

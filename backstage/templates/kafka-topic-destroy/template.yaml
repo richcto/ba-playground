@@ -1,0 +1,46 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kafka-topic-destroy
+  title: Destroy Kafka Topic
+  description: Destroys a Kafka topic by triggering the destroy-kafka pipeline. Removes the topic from the catalog.
+  tags:
+    - kafka
+    - infrastructure
+spec:
+  owner: platform
+  type: infrastructure
+
+  parameters:
+    - title: Kafka Topic to Destroy
+      required:
+        - topic_name
+      properties:
+        topic_name:
+          title: Topic Name
+          type: string
+          description: Name of the Kafka topic to destroy (must exist in catalog)
+          default: ticket-purchases
+          ui:autofocus: true
+        branch:
+          title: Branch
+          type: string
+          description: Git branch to run the workflow on
+          default: main
+
+  steps:
+    - id: trigger-destroy-pipeline
+      name: Trigger Kafka Destroy Pipeline
+      action: github:actions:dispatch
+      input:
+        repoUrl: github.com?owner=richcto&repo=ba-playground
+        workflowId: destroy-kafka.yml
+        branchOrTagName: ${{ parameters.branch }}
+        token: ${{ environment.secrets.GITHUB_TOKEN }}
+        workflowInputs:
+          topic_name: ${{ parameters.topic_name }}
+
+  output:
+    links:
+      - title: Workflow Run (poll for completion)
+        url: ${{ steps['trigger-destroy-pipeline'].output.runUrl }}
