@@ -25,19 +25,19 @@ variable "name_prefix" {
 variable "ec2_instance_type" {
   description = "EC2 instance type for Kafka"
   type        = string
-  default     = "t3.small"
+  default     = "t3.micro"
 }
 
 variable "kafka_heap_opts" {
-  description = "JVM heap for Kafka (e.g. -Xms512m -Xmx1g for t3.small)"
+  description = "JVM heap for Kafka (e.g. -Xms256m -Xmx256m for t3.micro)"
   type        = string
-  default     = "-Xms512m -Xmx1g"
+  default     = "-Xms256m -Xmx256m"
 }
 
 variable "kafka_docker_memory_mb" {
   description = "Docker memory limit for Kafka container (MB)"
   type        = number
-  default     = 1024
+  default     = 384
 }
 
 variable "kafka_ingress_mode" {

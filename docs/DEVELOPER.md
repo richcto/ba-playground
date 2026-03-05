@@ -91,15 +91,17 @@ See `schemas/README.md` for schema details and registration commands.
 
 Set `kafka_ingress_mode=public` in workflow_dispatch when running the Kafka pipeline.
 
-### Kafka memory tuning (t3.micro / small instances)
+### Kafka memory tuning
 
-If Kafka becomes unresponsive, tune via Terraform variables:
+Defaults target **t3.micro** (1GB): heap 256MB, container 384MB. If Kafka becomes unresponsive:
 
 ```bash
-terraform apply -var="kafka_heap_opts=-Xms256m -Xmx384m" -var="kafka_docker_memory_mb=512"
-```
+# t3.micro (1GB) - defaults
+terraform apply
 
-For t3.small (2GB): `kafka_heap_opts=-Xms512m -Xmx1g`, `kafka_docker_memory_mb=1024`
+# t3.small (2GB) - more headroom
+terraform apply -var="kafka_heap_opts=-Xms512m -Xmx1g" -var="kafka_docker_memory_mb=1024" -var="ec2_instance_type=t3.small"
+```
 
 ### CloudWatch memory metrics
 

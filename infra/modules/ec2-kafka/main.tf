@@ -80,6 +80,7 @@ locals {
       --memory ${var.kafka_docker_memory_mb}m \
       -p 9092:9092 -p 9093:9093 -p 9094:9094 \
       -e KAFKA_HEAP_OPTS="${var.kafka_heap_opts}" \
+      -e KAFKA_OPTS="-XX:MaxMetaspaceSize=96m -XX:+UseG1GC" \
       -e KAFKA_NODE_ID=1 \
       -e KAFKA_PROCESS_ROLES=broker,controller \
       -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@$${PRIVATE_IP}:9093 \
