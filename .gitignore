@@ -26,6 +26,7 @@ venv/
 .venv/
 env/
 .env
+backstage/.env
 *.egg-info/
 .eggs/
 dist/
