@@ -68,7 +68,14 @@ SCHEMA_REGISTRY_URL=$(terraform -chdir=infra output -raw schema_registry_url)
 
 ### Kafka topics (separate workflow)
 
-Run the `deploy-kafka` workflow (workflow_dispatch) after EC2 Kafka is up to create the `ticket-purchases` topic.
+Run the `deploy-kafka` workflow (workflow_dispatch) after EC2 Kafka is up. Parameters:
+
+| Parameter   | Default          | Description           |
+|-------------|------------------|-----------------------|
+| topic_name  | ticket-purchases | Topic name            |
+| partitions  | 3                | Number of partitions  |
+
+Each topic uses its own Terraform state file (`kafka/{topic_name}.tfstate`). Other settings (replication_factor=1, retention=7 days) use defaults; override via `-var` if needed.
 
 ## Schemas
 
@@ -82,7 +89,7 @@ See `schemas/README.md` for schema details and registration commands.
 | Workflow       | Trigger              | Purpose                          |
 |----------------|----------------------|----------------------------------|
 | deploy-infra   | PR, workflow_dispatch | Plan/apply/destroy AWS infra   |
-| deploy-kafka   | workflow_dispatch    | Create Kafka topics              |
+| deploy-kafka   | workflow_dispatch    | Create Kafka topics (topic_name, partitions params) |
 
 ### Kafka ingress mode
 

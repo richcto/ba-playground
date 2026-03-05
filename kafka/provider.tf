@@ -3,7 +3,7 @@ terraform {
 
   backend "s3" {
     bucket = "terraform-state-237617081322"
-    key    = "ba-playground/kafka/terraform.tfstate"
+    key    = "ba-playground/kafka/default.tfstate"
     region = "eu-west-2"
   }
 
@@ -17,5 +17,5 @@ terraform {
 
 provider "kafka" {
   bootstrap_servers = [data.terraform_remote_state.infra.outputs.kafka_bootstrap_servers]
-  tls_enabled      = false
+  tls_enabled       = false
 }
