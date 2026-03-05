@@ -106,7 +106,8 @@ jobs:
         if: github.event.inputs.adjust_partitions != 'true'
         run: |
           topic="${{ github.event.inputs.topic_name || 'ticket-purchases' }}"
-          cat << EOF | sed 's/^          //' >> backstage/catalog/kafka-topics.yaml
+          partitions="${{ github.event.inputs.partitions || '3' }}"
+          cat >> backstage/catalog/kafka-topics.yaml << EOF
 
 ---
 apiVersion: backstage.io/v1alpha1
@@ -129,7 +130,5 @@ EOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add backstage/catalog/kafka-topics.yaml
-          if ! git diff --staged --quiet; then
-            git commit -m "Add Kafka topic to catalog"
-            git push
-          fi
+          git diff --staged --quiet || git commit -m "Add Kafka topic to catalog"
+          git push

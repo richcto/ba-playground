@@ -14,7 +14,11 @@ This project provides a Kafka-based messaging system with:
 
 ```
 BA/
-├── infra/                 # AWS infrastructure (EC2, Lambdas)
+├── backstage/              # Local Backstage portal (Docker Compose)
+│   ├── docker-compose.yml
+│   ├── app-config.yaml
+│   └── templates/kafka-topic/   # Create Kafka Topic template
+├── infra/                  # AWS infrastructure (EC2, Lambdas)
 │   ├── main.tf
 │   ├── modules/
 │   │   ├── ec2-kafka/
@@ -65,6 +69,18 @@ terraform apply
 SCHEMA_REGISTRY_URL=$(terraform -chdir=infra output -raw schema_registry_url)
 ./scripts/register-schemas.sh "$SCHEMA_REGISTRY_URL"
 ```
+
+### Backstage portal (optional)
+
+A local Backstage portal can provision Kafka topics via a scaffolder template:
+
+```bash
+cd backstage
+export GITHUB_TOKEN=ghp_xxxx   # PAT with workflow scope
+docker compose up -d
+```
+
+Open http://localhost:7007 → **Create** → **Create Kafka Topic**. The template triggers the `deploy-kafka` workflow with the entered parameters. See `backstage/README.md` for details.
 
 ### Kafka topics (separate workflow)
 
