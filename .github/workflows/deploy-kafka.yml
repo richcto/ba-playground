@@ -26,7 +26,7 @@ env:
 jobs:
   kafka_config:
     runs-on: ubuntu-latest
-    environment: dev
+    # environment: dev  # Temporarily disabled - was causing 500 on workflow_dispatch API
     permissions:
       contents: read
       id-token: write
