@@ -1,0 +1,67 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kafka-topic
+  title: Create Kafka Topic
+  description: Provisions a new Kafka topic. Workflow status is polled and shown in the task logs.
+  tags:
+    - kafka
+    - infrastructure
+spec:
+  owner: platform
+  type: infrastructure
+
+  parameters:
+    - title: Kafka Topic Configuration
+      required:
+        - topic_name
+        - partitions
+      properties:
+        topic_name:
+          title: Topic Name
+          type: string
+          description: Name of the Kafka topic (e.g. ticket-purchases)
+          default: ticket-purchases
+          ui:autofocus: true
+        partitions:
+          title: Partitions
+          type: integer
+          description: Number of partitions for the topic
+          default: 3
+          minimum: 1
+          maximum: 100
+        branch:
+          title: Branch
+          type: string
+          description: Git branch to run the workflow on
+          default: main
+
+  steps:
+    - id: check-duplicate
+      name: Check for duplicate topic
+      action: kafka:topic:checkDuplicate
+      input:
+        topic_name: ${{ parameters.topic_name }}
+
+    - id: trigger-kafka-pipeline
+      name: Trigger Kafka Deploy Pipeline (polling status)
+      action: github:actions:dispatchAndWait
+      input:
+        repoUrl: github.com?owner=richcto&repo=ba-playground
+        workflowId: deploy-kafka.yml
+        branchOrTagName: ${{ parameters.branch }}
+        token: ${{ environment.secrets.GITHUB_TOKEN }}
+        workflowInputs:
+          topic_name: ${{ parameters.topic_name }}
+          partitions: ${{ parameters.partitions | string }}
+
+    - id: register-topic
+      name: Register topic in catalog
+      action: kafka:topic:register
+      input:
+        topic_name: ${{ parameters.topic_name }}
+
+  output:
+    links:
+      - title: Workflow Run
+        url: ${{ steps['trigger-kafka-pipeline'].output.runUrl }}
