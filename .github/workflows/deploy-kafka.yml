@@ -10,8 +10,7 @@ on:
       partitions:
         description: "Number of partitions"
         required: true
-        default: 3
-        type: number
+        default: "3"
       adjust_partitions:
         description: "Adjust existing topic (skip duplicate check and catalog add)"
         required: false
@@ -26,7 +25,7 @@ env:
 jobs:
   kafka_config:
     runs-on: ubuntu-latest
-    # environment: dev  # Temporarily disabled - was causing 500 on workflow_dispatch API
+    environment: dev
     permissions:
       contents: read
       id-token: write
