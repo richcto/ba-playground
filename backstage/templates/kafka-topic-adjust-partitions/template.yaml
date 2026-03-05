@@ -1,0 +1,56 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: kafka-topic-adjust-partitions
+  title: Adjust Kafka Topic Partitions
+  description: Increases partitions for an existing Kafka topic. Kafka only allows increasing partitions, not decreasing.
+  tags:
+    - kafka
+    - infrastructure
+spec:
+  owner: platform
+  type: infrastructure
+
+  parameters:
+    - title: Kafka Topic Partitions
+      required:
+        - topic_name
+        - partitions
+      properties:
+        topic_name:
+          title: Topic Name
+          type: string
+          description: Name of the existing Kafka topic
+          default: ticket-purchases
+          ui:autofocus: true
+        partitions:
+          title: New Partition Count
+          type: integer
+          description: Number of partitions (must be >= current count; Kafka cannot decrease partitions)
+          default: 6
+          minimum: 1
+          maximum: 100
+        branch:
+          title: Branch
+          type: string
+          description: Git branch to run the workflow on
+          default: main
+
+  steps:
+    - id: trigger-adjust-pipeline
+      name: Trigger Kafka Deploy Pipeline (Adjust Partitions)
+      action: github:actions:dispatch
+      input:
+        repoUrl: github.com?owner=richcto&repo=ba-playground
+        workflowId: deploy-kafka.yml
+        branchOrTagName: ${{ parameters.branch }}
+        token: ${{ environment.secrets.GITHUB_TOKEN }}
+        workflowInputs:
+          topic_name: ${{ parameters.topic_name }}
+          partitions: ${{ parameters.partitions | string }}
+          adjust_partitions: "true"
+
+  output:
+    links:
+      - title: Workflow Run (poll for completion)
+        url: ${{ steps['trigger-adjust-pipeline'].output.runUrl }}

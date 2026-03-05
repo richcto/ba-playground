@@ -1,0 +1,30 @@
+# Loaded last to ensure our Kafka template appears alongside defaults.
+# Production config overrides catalog.locations; this adds our template.
+catalog:
+  locations:
+    - type: file
+      target: ./catalog/kafka-topics.yaml
+      rules:
+        - allow: [Resource]
+    - type: file
+      target: ./examples/entities.yaml
+    - type: file
+      target: ./examples/template/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./examples/org.yaml
+      rules:
+        - allow: [User, Group]
+    - type: file
+      target: ./templates/kafka-topic/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/kafka-topic-destroy/template.yaml
+      rules:
+        - allow: [Template]
+    - type: file
+      target: ./templates/kafka-topic-adjust-partitions/template.yaml
+      rules:
+        - allow: [Template]
