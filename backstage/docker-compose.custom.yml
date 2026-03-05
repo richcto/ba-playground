@@ -1,11 +1,24 @@
+# Docker Compose for custom Backstage with workflow status polling.
+# Build and run:
+#
+#   cd backstage
+#   docker compose -f docker-compose.custom.yml build
+#   docker compose -f docker-compose.custom.yml up -d
+#
+# The build runs yarn install and yarn build:backend in backstage-app automatically.
+
 services:
   backstage:
-    image: ghcr.io/backstage/backstage:latest
+    image: backstage-custom
+    build:
+      context: ../backstage-app
+      dockerfile: ../backstage/Dockerfile.custom
     env_file: .env
     ports:
       - "7007:7007"
     environment:
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-backstage}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backstage}
       POSTGRES_DB: ${POSTGRES_DB:-backstage}
@@ -15,11 +28,12 @@ services:
       APP_CONFIG_backend_database_connection_user: ${POSTGRES_USER:-backstage}
       APP_CONFIG_backend_database_connection_password: ${POSTGRES_PASSWORD:-backstage}
       APP_CONFIG_backend_database_connection_database: ${POSTGRES_DB:-backstage}
-    command: ["sh", "-c", "if [ -n \"$$GITHUB_TOKEN\" ]; then echo '[DEBUG] GITHUB_TOKEN: set'; else echo '[DEBUG] GITHUB_TOKEN: NOT SET or empty'; fi; exec node packages/backend --config app-config.yaml --config app-config.production.yaml --config app-config.override.yaml"]
+    command: ["sh", "-c", "exec node packages/backend --config app-config.yaml --config app-config.production.yaml --config app-config.override.yaml"]
     volumes:
       - ./app-config.yaml:/app/app-config.yaml:ro
+      - ../backstage-app/app-config.production.yaml:/app/app-config.production.yaml:ro
       - ./app-config.override.yaml:/app/app-config.override.yaml:ro
-      - ./templates:/app/templates:ro
+      - ./templates-polling:/app/templates:ro
     depends_on:
       postgres:
         condition: service_healthy

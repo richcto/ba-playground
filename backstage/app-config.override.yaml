@@ -3,10 +3,6 @@
 catalog:
   locations:
     - type: file
-      target: ./catalog/kafka-topics.yaml
-      rules:
-        - allow: [Resource]
-    - type: file
       target: ./examples/entities.yaml
     - type: file
       target: ./examples/template/template.yaml

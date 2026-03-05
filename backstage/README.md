@@ -1,12 +1,37 @@
 # Backstage Portal (Local)
 
-Docker Compose setup for a local Backstage developer portal using the [official Backstage image](https://github.com/backstage/backstage/pkgs/container/backstage%2Fbackstage).
+Docker Compose setup for a local Backstage developer portal.
 
 ## Features
 
-- **Create Kafka Topic** – provisions a new Kafka topic. Duplicate names are blocked via catalog. Workflow run link shown for status polling.
+- **Create Kafka Topic** – provisions a new Kafka topic. Duplicate names are blocked. Topics are stored in the Backstage DB (no repo, no git pull). **Workflow status is polled and shown in the task logs**.
 - **Destroy Kafka Topic** – destroys a topic and removes it from the catalog.
 - **Adjust Kafka Topic Partitions** – increases partitions for an existing topic (Kafka cannot decrease).
+
+## Two Modes
+
+### 1. Official image (quick start, no workflow polling)
+
+```bash
+docker compose up -d
+```
+
+Uses `github:actions:dispatch` – triggers the workflow and shows a link. You must check GitHub for status.
+
+### 2. Custom image (recommended for prod – workflow status in logs)
+
+The custom image includes `github:actions:dispatchAndWait`, which polls until the workflow completes and streams status into the scaffolder task logs.
+
+**Build and run:**
+
+```bash
+cd backstage-app
+yarn install
+yarn build:backend
+cd ../backstage
+docker compose -f docker-compose.custom.yml build
+docker compose -f docker-compose.custom.yml up -d
+```
 
 ## Prerequisites
 
@@ -15,7 +40,7 @@ Docker Compose setup for a local Backstage developer portal using the [official 
   - **Classic PAT**: `repo` (or `public_repo`) + `workflow` scopes
   - **Fine-grained PAT**: Repository permission **Actions** → **Read and write** on `ba-playground`
 
-## Quick Start
+## Quick Start (official image)
 
 1. Add your GitHub token to `backstage/.env` (the file exists with a placeholder; add your token to `GITHUB_TOKEN=`).
 
@@ -27,7 +52,7 @@ Docker Compose setup for a local Backstage developer portal using the [official 
 
 3. Open http://localhost:7007
 
-4. Go to **Create** → choose a template (Create Kafka Topic, Destroy Kafka Topic, or Adjust Partitions) → fill in parameters → **Create**. Use the workflow run link to poll for completion.
+4. Go to **Create** → choose a template (Create Kafka Topic, Destroy Kafka Topic, or Adjust Partitions) → fill in parameters → **Create**.
 
 ## Configuration
 
