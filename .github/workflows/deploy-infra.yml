@@ -18,6 +18,14 @@ on:
         required: false
         default: false
         type: boolean
+      kafka_ingress_mode:
+        description: "Kafka/Schema Registry ingress: 'restricted' (your IP) or 'public' (for GitHub Actions/Kafka pipeline)"
+        required: false
+        default: 'restricted'
+        type: choice
+        options:
+          - restricted
+          - public
 
 env:
   AWS_REGION: eu-west-2
@@ -50,6 +58,7 @@ jobs:
           for lambda in producer consumer; do
             mkdir -p infra/build/$lambda
             cp lambdas/$lambda/*.py infra/build/$lambda/ 2>/dev/null || true
+            [ "$lambda" = "producer" ] && mkdir -p infra/build/$lambda/schemas && cp schemas/*.avsc infra/build/$lambda/schemas/
             pip install -r lambdas/$lambda/requirements.txt -t infra/build/$lambda/ --quiet
           done
 
@@ -75,6 +84,7 @@ jobs:
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+          TF_VAR_kafka_ingress_mode: ${{ github.event.inputs.kafka_ingress_mode || 'restricted' }}
         run: |
           if [ "${{ github.event.inputs.destroy }}" = "true" ]; then
             terraform plan -destroy -no-color -input=false 2>&1 | tee plan.txt
@@ -88,6 +98,7 @@ jobs:
         env:
           TF_VAR_aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
           TF_VAR_aws_role_name: ${{ env.AWS_ROLE_NAME }}
+          TF_VAR_kafka_ingress_mode: ${{ github.event.inputs.kafka_ingress_mode || 'restricted' }}
         run: terraform apply -auto-approve -input=false tfplan
 
   destroy:
@@ -101,6 +112,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build Lambda packages (required for Terraform to evaluate config during destroy)
+        run: |
+          for lambda in producer consumer; do
+            mkdir -p infra/build/$lambda
+            cp lambdas/$lambda/*.py infra/build/$lambda/ 2>/dev/null || true
+            [ "$lambda" = "producer" ] && mkdir -p infra/build/$lambda/schemas && cp schemas/*.avsc infra/build/$lambda/schemas/
+            pip install -r lambdas/$lambda/requirements.txt -t infra/build/$lambda/ --quiet
+          done
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

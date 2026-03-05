@@ -1,9 +1,9 @@
-resource "kafka_topic" "ticket_purchases" {
-  name               = "ticket-purchases"
-  partitions         = 3
-  replication_factor = 1
+resource "kafka_topic" "topic" {
+  name               = var.topic_name
+  partitions         = var.partitions
+  replication_factor = var.replication_factor
 
   config = {
-    "retention.ms" = "604800000" # 7 days
+    "retention.ms" = var.retention_ms
   }
 }

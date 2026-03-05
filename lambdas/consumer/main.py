@@ -2,127 +2,171 @@
 Kafka Consumer Lambda handler.
 
 Consumes messages from a Kafka topic specified in the event payload.
-Uses DynamoDB for offset storage (avoids Kafka consumer group coordinator).
-Event format: {"topic": "topic-name"}
+Uses Kafka consumer groups for offset storage (conventional approach).
+For ticket-purchases: deserializes Avro using Schema Registry.
+Event format: {"topic": "topic-name"} or GET /consume/{topic}
 """
 
+# Standard library: JSON for request/response bodies
 import json
+
+# Standard library: logging for debug/info/warning messages
 import logging
+
+# Standard library: read environment variables (KAFKA_BOOTSTRAP_SERVERS, etc.)
 import os
 
-import boto3
-from kafka import KafkaConsumer
-from kafka.structs import TopicPartition
+# Standard library: time.time() for poll deadline
+import time
 
+# Confluent Kafka: consumer that deserializes values (Avro or string)
+from confluent_kafka.deserializing_consumer import DeserializingConsumer
+
+# Confluent Kafka: client to fetch Avro schemas from Schema Registry
+from confluent_kafka.schema_registry import SchemaRegistryClient
+
+# Confluent Kafka: deserializer that converts Avro bytes to Python dict
+from confluent_kafka.schema_registry.avro import AvroDeserializer
+
+# Create logger named after this module (lambdas.consumer.main)
 logger = logging.getLogger(__name__)
+# Set this module's logger to DEBUG level (shows all messages)
 logger.setLevel(logging.DEBUG)
+# Set root logger to DEBUG so our messages are not filtered
 logging.getLogger().setLevel(logging.DEBUG)
 
 
-def _get_offset(table, topic: str, partition: int) -> int | None:
-    """Read stored offset from DynamoDB. Returns None if not found."""
-    try:
-        r = table.get_item(Key={"topic_partition": f"{topic}#{partition}"})
-        item = r.get("Item")
-        if item and "offset" in item:
-            return int(item["offset"])
-    except Exception as e:
-        logger.warning("Failed to read offset for %s#%s: %s", topic, partition, e)
-    return None
+def _deserialize_value(value):
+    """
+    Normalize the consumed value for the API response.
+    AvroDeserializer returns dict; string topics return bytes.
+    """
+    # None means tombstone or empty message
+    if value is None:
+        return None
+    # Avro-deserialized messages are already Python dicts
+    if isinstance(value, dict):
+        return value
+    # Plain string topics: decode bytes to UTF-8 string
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    # Fallback: return as-is (e.g. already a string)
+    return value
 
 
-def _put_offset(table, topic: str, partition: int, offset: int) -> None:
-    """Write offset to DynamoDB."""
-    try:
-        table.put_item(
-            Item={
-                "topic_partition": f"{topic}#{partition}",
-                "offset": offset,
-            }
-        )
-    except Exception as e:
-        logger.warning("Failed to write offset for %s#%s: %s", topic, partition, e)
+def _http_response(status_code: int, body: dict) -> dict:
+    """
+    Build API Gateway HTTP API v2 response format.
+    body is a dict; we JSON-serialize it for the response body.
+    """
+    return {
+        # HTTP status code (200, 400, 500)
+        "statusCode": status_code,
+        # Required for JSON responses
+        "headers": {"Content-Type": "application/json"},
+        # API Gateway expects body as a string
+        "body": json.dumps(body),
+    }
 
 
 def handler(event, context):
     """
-    Lambda handler for Kafka consumer.
-
-    Consumes from the topic specified in the event payload.
-    Uses DynamoDB for offsets instead of Kafka consumer groups.
-    Event format: {"topic": "topic-name"}
+    Lambda entry point. Invoked by API Gateway (GET /consume/{topic})
+    or by direct invoke with {"topic": "topic-name"}.
     """
+    # Log the raw event for debugging (includes pathParameters, body, etc.)
     logger.debug("Consumer invoked, event: %s", event)
 
-    topic = event.get("topic")
+    # API Gateway puts path params in pathParameters; direct invoke uses event.topic
+    path_params = event.get("pathParameters") or {}
+    topic = path_params.get("topic") or event.get("topic")
+    # Reject if no topic provided
     if not topic:
-        logger.warning("Missing topic in event payload")
-        return {"statusCode": 400, "body": json.dumps({"error": "Missing topic in event payload"})}
+        return _http_response(400, {"error": "Missing topic. Use GET /consume/{topic} or pass topic in payload"})
 
-    logger.debug("Consuming from topic: %s", topic)
-
+    # Kafka broker address (e.g. 172.31.x.x:9092) from Lambda environment
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
     if not bootstrap_servers:
-        logger.error("KAFKA_BOOTSTRAP_SERVERS not configured")
-        return {"statusCode": 500, "body": json.dumps({"error": "Kafka not configured"})}
-    logger.debug("Bootstrap servers: %s", bootstrap_servers)
+        return _http_response(500, {"error": "Kafka not configured"})
 
-    table_name = os.environ.get("OFFSETS_TABLE_NAME")
-    if not table_name:
-        logger.error("OFFSETS_TABLE_NAME not configured")
-        return {"statusCode": 500, "body": json.dumps({"error": "Offsets table not configured"})}
+    # Schema Registry URL for Avro; only ticket-purchases uses Avro
+    schema_registry_url = os.environ.get("SCHEMA_REGISTRY_URL")
+    use_schema = schema_registry_url and topic == "ticket-purchases"
 
     try:
-        table = boto3.resource("dynamodb").Table(table_name)
-        consumer = KafkaConsumer(
-            bootstrap_servers=bootstrap_servers.split(","),
-            value_deserializer=lambda v: v.decode("utf-8") if v else None,
-            consumer_timeout_ms=2000,
-        )
+        # Consumer config: connect to Kafka, use consumer group for offsets
+        conf = {
+            # Comma-separated broker list
+            "bootstrap.servers": bootstrap_servers,
+            # Consumer group ID; Kafka stores offsets per group
+            "group.id": "lambda-consumer-api",
+            # We commit manually after each poll batch
+            "enable.auto.commit": False,
+            # Max time before broker considers consumer dead (ms)
+            "session.timeout.ms": 6000,
+            # When no offset exists: start from beginning (not end)
+            "auto.offset.reset": "earliest",
+        }
+        # Add value deserializer: Avro for ticket-purchases, UTF-8 for others
+        if use_schema:
+            # Client to fetch schemas from Schema Registry
+            sr_client = SchemaRegistryClient({"url": schema_registry_url})
+            # Deserializer fetches schema by ID from message, decodes Avro to dict
+            conf["value.deserializer"] = AvroDeserializer(sr_client)
+        else:
+            # Simple UTF-8 decode for non-Avro topics
+            conf["value.deserializer"] = lambda v, ctx: v.decode("utf-8") if v else None
 
-        # Get partitions for the topic and assign them (no consumer group)
-        partitions = consumer.partitions_for_topic(topic)
-        if not partitions:
-            logger.warning("Topic %s has no partitions or does not exist", topic)
+        # Create consumer with the config
+        consumer = DeserializingConsumer(conf)
+
+        # Check topic exists before subscribing (avoids obscure errors)
+        metadata = consumer.list_topics(topic, timeout=10)
+        if topic not in metadata.topics:
+            logger.warning("Topic %s does not exist", topic)
             consumer.close()
-            return {"statusCode": 200, "body": json.dumps({"topic": topic, "messages": []})}
+            return _http_response(200, {"topic": topic, "messages": []})
 
-        tps = [TopicPartition(topic, p) for p in partitions]
-        consumer.assign(tps)
+        # Subscribe to topic; Kafka assigns partitions and provides committed offsets
+        consumer.subscribe([topic])
 
-        # Seek to stored offsets or beginning
-        for tp in tps:
-            stored = _get_offset(table, topic, tp.partition)
-            if stored is not None:
-                consumer.seek(tp, stored)
-                logger.debug("Seeked %s to offset %s", tp, stored)
-            else:
-                consumer.seek_to_beginning(tp)
-                logger.debug("Seeked %s to beginning", tp)
-
-        logger.debug("Polling for messages (timeout 2s)...")
+        # Collect messages until deadline
         messages = []
-        for record in consumer:
-            msg = {
-                "partition": record.partition,
-                "offset": record.offset,
-                "value": record.value,
-            }
-            messages.append(msg)
-            logger.info("Consumed record partition=%s offset=%s value=%s", record.partition, record.offset, record.value)
+        # 8 seconds: enough for group join, partition assignment, and polling
+        deadline = time.time() + 8.0
+        while time.time() < deadline:
+            # Poll for up to 1 second; returns Message or None if timeout
+            msg = consumer.poll(timeout=1.0)
+            # No message in this poll cycle
+            if msg is None:
+                continue
+            # Check for Kafka errors (e.g. partition EOF, rebalance)
+            if msg.error():
+                # -191 = PARTITION_EOF: reached end of partition, not an error
+                if msg.error().code() == -191:
+                    continue
+                logger.warning("Consumer error: %s", msg.error())
+                continue
+            # Deserialize value (Avro dict or UTF-8 string)
+            value = _deserialize_value(msg.value())
+            # Append to result with partition, offset, key for API response
+            messages.append({
+                "partition": msg.partition(),
+                "offset": msg.offset(),
+                "key": msg.key().decode("utf-8") if msg.key() else None,
+                "value": value,
+            })
+            logger.info("Consumed partition=%s offset=%s value=%s", msg.partition(), msg.offset(), value)
 
-        # Persist offsets for all partitions we consumed from
-        for tp in tps:
-            pos = consumer.position(tp)
-            _put_offset(table, topic, tp.partition, pos)
-
+        # Commit offsets so next invocation continues from here
+        consumer.commit()
+        # Release consumer resources and leave group
         consumer.close()
         logger.info("Consumed %d message(s) from topic=%s", len(messages), topic)
     except Exception as e:
+        # Log full traceback and return 500
         logger.exception("Failed to consume from Kafka: %s", e)
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return _http_response(500, {"error": str(e)})
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"topic": topic, "messages": messages}),
-    }
+    # Return success with topic and messages
+    return _http_response(200, {"topic": topic, "messages": messages})

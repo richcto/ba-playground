@@ -32,6 +32,12 @@ variable "create_api_gateway" {
   default     = false
 }
 
+variable "api_routes" {
+  description = "Additional API Gateway routes (e.g. [\"GET /consume/{topic}\"])"
+  type        = list(string)
+  default     = []
+}
+
 variable "environment" {
   description = "Lambda environment variables"
   type        = map(string)

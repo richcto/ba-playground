@@ -29,3 +29,14 @@ output "consumer_function_name" {
   description = "Consumer Lambda function name"
   value       = module.consumer.function_name
 }
+
+output "consumer_api_url" {
+  description = "Consumer API Gateway URL (GET /consume/{topic})"
+  value       = module.consumer.api_url
+}
+
+# Schema Registry
+output "schema_registry_url" {
+  description = "Schema Registry URL"
+  value       = module.ec2_schema_registry.schema_registry_url
+}

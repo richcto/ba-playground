@@ -2,6 +2,16 @@ name: Deploy Kafka Config
 
 on:
   workflow_dispatch:
+    inputs:
+      topic_name:
+        description: "Topic name"
+        required: true
+        default: "ticket-purchases"
+      partitions:
+        description: "Number of partitions"
+        required: true
+        default: 3
+        type: number
 
 env:
   AWS_REGION: eu-west-2
@@ -49,8 +59,9 @@ jobs:
       - name: Wait for Kafka
         run: |
           host=$(echo "${{ steps.kafka.outputs.bootstrap }}" | cut -d: -f1)
+          port=$(echo "${{ steps.kafka.outputs.bootstrap }}" | cut -d: -f2)
           for i in $(seq 1 18); do
-            if timeout 5 bash -c "echo >/dev/tcp/$host/9092" 2>/dev/null; then
+            if timeout 5 bash -c "echo >/dev/tcp/$host/$port" 2>/dev/null; then
               echo "Kafka is reachable"
               exit 0
             fi
@@ -62,8 +73,15 @@ jobs:
 
       - name: Terraform Init (kafka)
         working-directory: kafka
-        run: terraform init
+        run: |
+          topic_key=$(echo "${{ github.event.inputs.topic_name || 'ticket-purchases' }}" | tr '.' '-')
+          terraform init -reconfigure -backend-config="key=ba-playground/kafka/${topic_key}.tfstate"
 
       - name: Terraform Apply (Kafka config)
         working-directory: kafka
-        run: terraform apply -auto-approve -input=false
+        run: |
+          topic_name="${{ github.event.inputs.topic_name || 'ticket-purchases' }}"
+          partitions="${{ github.event.inputs.partitions || '3' }}"
+          terraform apply -auto-approve -input=false \
+            -var="topic_name=${topic_name}" \
+            -var="partitions=${partitions}"

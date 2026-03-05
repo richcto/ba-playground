@@ -26,6 +26,13 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_vpc" {
+  count = length(var.subnet_ids) > 0 && length(var.security_group_ids) > 0 ? 1 : 0
+
+  role       = aws_iam_role.lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_iam_role_policy" "additional" {
   count = var.additional_role_policy != null ? 1 : 0
 
@@ -107,11 +114,11 @@ resource "aws_apigatewayv2_route" "root_get" {
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
-resource "aws_apigatewayv2_route" "produce_get" {
+resource "aws_apigatewayv2_route" "produce_post" {
   count = var.create_api_gateway ? 1 : 0
 
   api_id    = aws_apigatewayv2_api.this[0].id
-  route_key = "GET /produce"
+  route_key = "POST /produce"
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 
@@ -120,6 +127,14 @@ resource "aws_apigatewayv2_route" "root_post" {
 
   api_id    = aws_apigatewayv2_api.this[0].id
   route_key = "POST /"
+  target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
+}
+
+resource "aws_apigatewayv2_route" "custom" {
+  for_each = var.create_api_gateway && length(var.api_routes) > 0 ? toset(var.api_routes) : []
+
+  api_id    = aws_apigatewayv2_api.this[0].id
+  route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.this[0].id}"
 }
 

@@ -36,6 +36,11 @@ resource "aws_iam_role_policy_attachment" "ssm_managed_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
+  role       = aws_iam_role.ec2_kafka.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_instance_profile" "ec2_kafka" {
   name = "${var.name_prefix}-ec2-kafka-profile"
   role = aws_iam_role.ec2_kafka.name
@@ -48,32 +53,52 @@ locals {
     set -e
     exec > >(tee /var/log/user-data.log) 2>&1
 
-    # Install Docker
+    # Install Docker and CloudWatch agent
     yum update -y
-    yum install -y docker
+    yum install -y docker amazon-cloudwatch-agent
     systemctl start docker
     systemctl enable docker
+
+    # CloudWatch agent config for memory monitoring (Python avoids nested heredoc issues)
+    mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+    python3 -c 'import json; json.dump({"metrics":{"namespace":"BA/Kafka","metrics_collected":{"mem":{"measurement":["mem_used_percent","mem_available","mem_used"],"metrics_collection_interval":60},"disk":{"measurement":["disk_used_percent"],"metrics_collection_interval":60}}}}, open("/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json","w"), indent=2)'
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/cw-agent.json
 
     # Wait for Elastic IP to be attached by Terraform
     sleep 90
 
-    # Get instance public IP for Kafka advertised listeners (IMDSv2)
+    # Get instance IPs (IMDSv2)
     TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
     PUBLIC_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/public-ipv4)
+    PRIVATE_IP=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/local-ipv4)
 
-    # Run Kafka (Apache Kafka KRaft - single node)
+    # Run Kafka (Apache Kafka KRaft) with dual listeners:
+    # INTERNAL (9092): Schema Registry, in-VPC clients - advertised as private IP
+    # EXTERNAL (9094): Laptop, Lambdas, tools - advertised as public IP
+    # Memory tuning for small instances: heap limit + container memory cap
     docker run -d --name kafka --restart unless-stopped \
-      -p 9092:9092 \
+      --memory ${var.kafka_docker_memory_mb}m \
+      -p 9092:9092 -p 9093:9093 -p 9094:9094 \
+      -e KAFKA_HEAP_OPTS="${var.kafka_heap_opts}" \
+      -e KAFKA_OPTS="-XX:MaxMetaspaceSize=96m -XX:+UseG1GC" \
       -e KAFKA_NODE_ID=1 \
       -e KAFKA_PROCESS_ROLES=broker,controller \
-      -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
+      -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@$${PRIVATE_IP}:9093 \
       -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
-      -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
-      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
-      -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://$${PUBLIC_IP}:9092 \
+      -e KAFKA_LISTENERS=INTERNAL://:9092,EXTERNAL://0.0.0.0:9094,CONTROLLER://:9093 \
+      -e KAFKA_ADVERTISED_LISTENERS=INTERNAL://$${PRIVATE_IP}:9092,EXTERNAL://$${PUBLIC_IP}:9094 \
+      -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT \
+      -e KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL \
+      -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+      -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 \
+      -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1 \
+      -e KAFKA_NUM_NETWORK_THREADS=2 \
+      -e KAFKA_NUM_IO_THREADS=2 \
+      -e KAFKA_LOG_RETENTION_HOURS=24 \
+      -e KAFKA_LOG_SEGMENT_BYTES=10485760 \
       apache/kafka:3.9.0
 
-    echo "Kafka started on $${PUBLIC_IP}:9092"
+    echo "Kafka started: INTERNAL $${PRIVATE_IP}:9092, EXTERNAL $${PUBLIC_IP}:9094"
   EOT
 }
 
@@ -84,11 +109,36 @@ resource "aws_security_group" "ec2_kafka" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Kafka broker"
-    from_port   = var.kafka_port
-    to_port     = var.kafka_port
+    description = "Kafka INTERNAL (Schema Registry, in-VPC)"
+    from_port   = 9092
+    to_port     = 9092
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.ingress_cidr_blocks
+  }
+
+  # Allow in-VPC clients (Lambda) - source_sg can fail with Lambda hyperplane ENIs
+  ingress {
+    description = "Kafka INTERNAL from VPC (Lambda)"
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
+  }
+
+  ingress {
+    description = "Kafka CONTROLLER (KRaft broker-to-controller, self)"
+    from_port   = 9093
+    to_port     = 9093
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.default.cidr_block]
+  }
+
+  ingress {
+    description = "Kafka EXTERNAL (laptop, Lambdas, tools)"
+    from_port   = 9094
+    to_port     = 9094
+    protocol    = "tcp"
+    cidr_blocks = var.ingress_cidr_blocks
   }
 
   ingress {
@@ -96,7 +146,7 @@ resource "aws_security_group" "ec2_kafka" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.ingress_cidr_blocks
   }
 
   egress {
