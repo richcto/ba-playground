@@ -31,6 +31,10 @@ import {
   SignInPage,
 } from '@backstage/core-components';
 import { createApp } from '@backstage/app-defaults';
+import DarkIcon from '@material-ui/icons/Brightness2';
+import LightIcon from '@material-ui/icons/WbSunny';
+import { UnifiedThemeProvider } from '@backstage/theme';
+import { britishAirwaysTheme } from './theme';
 import { AppRouter, FlatRoutes } from '@backstage/core-app-api';
 import { CatalogGraphPage } from '@backstage/plugin-catalog-graph';
 import { RequirePermission } from '@backstage/plugin-permission-react';
@@ -39,6 +43,26 @@ import { NotificationsPage } from '@backstage/plugin-notifications';
 import { SignalsDisplay } from '@backstage/plugin-signals';
 
 const app = createApp({
+  themes: [
+    {
+      id: 'light',
+      title: 'British Airways',
+      variant: 'light',
+      icon: <LightIcon />,
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={britishAirwaysTheme} children={children} />
+      ),
+    },
+    {
+      id: 'dark',
+      title: 'British Airways',
+      variant: 'dark',
+      icon: <DarkIcon />,
+      Provider: ({ children }) => (
+        <UnifiedThemeProvider theme={britishAirwaysTheme} children={children} />
+      ),
+    },
+  ],
   apis,
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
@@ -65,7 +89,11 @@ const app = createApp({
 const routes = (
   <FlatRoutes>
     <Route path="/" element={<Navigate to="catalog" />} />
-    <Route path="/catalog" element={<CatalogIndexPage />} />
+    <Route
+      path="/catalog/kafka-topics"
+      element={<CatalogIndexPage key="kafka-topics" initialKind="resource" />}
+    />
+    <Route path="/catalog" element={<CatalogIndexPage key="catalog" />} />
     <Route
       path="/catalog/:namespace/:kind/:name"
       element={<CatalogEntityPage />}

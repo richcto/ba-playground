@@ -8,22 +8,28 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { ResourceEntity } from '@backstage/catalog-model';
+import { LoggerService } from '@backstage/backend-plugin-api';
 import { Knex } from 'knex';
 
 const PROVIDER_ID = 'kafka-topics';
 
 export class KafkaTopicsEntityProvider implements EntityProvider {
-  constructor(private readonly knex: Knex) {}
+  constructor(
+    private readonly knex: Knex,
+    private readonly logger: LoggerService,
+  ) {}
 
   getProviderName(): string {
     return PROVIDER_ID;
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
+    this.logger.info('Kafka topics entity provider connecting');
     await this.ensureTable();
     await this.refresh(connection);
-    // Poll every 10s so new topics appear without restart
-    setInterval(() => connection.refresh(), 10_000);
+    // Poll every 10s so new topics appear without restart (full refresh, not incremental)
+    setInterval(() => this.refresh(connection), 10_000);
+    this.logger.info('Kafka topics entity provider connected and polling');
   }
 
   private async ensureTable(): Promise<void> {
@@ -35,38 +41,39 @@ export class KafkaTopicsEntityProvider implements EntityProvider {
         table.string('description');
         table.timestamps(true, true);
       });
-      // Seed ticket-purchases if migrating from file-based catalog
-      try {
-        await this.knex('kafka_topics').insert({
-          name: 'ticket-purchases',
-          title: 'ticket-purchases',
-          description: 'Kafka topic for ticket purchases',
-        });
-      } catch {
-        // Ignore if already exists
-      }
     }
   }
 
   async refresh(connection: EntityProviderConnection): Promise<void> {
     const rows = await this.knex('kafka_topics').select('*');
     const entities = rows.map(
-      row =>
-        ({
+      row => {
+        const locationKey = `${PROVIDER_ID}:${row.name}`;
+        return {
           apiVersion: 'backstage.io/v1alpha1',
           kind: 'Resource',
           metadata: {
             name: row.name,
+            namespace: 'default',
             title: row.title || row.name,
             description: row.description || 'Kafka topic',
             tags: ['kafka'],
+            annotations: {
+              'backstage.io/managed-by-location': locationKey,
+              'backstage.io/managed-by-origin-location': locationKey,
+            },
           },
           spec: {
             type: 'kafka-topic',
             owner: 'platform',
-            system: 'ba-playground',
+            system: 'examples',
           },
-        }) as ResourceEntity,
+        } as ResourceEntity;
+      },
+    );
+
+    this.logger.info(
+      `Kafka topics entity provider refreshing: ${entities.length} topics from DB [${entities.map(e => e.metadata.name).join(', ')}]`,
     );
 
     await connection.applyMutation({

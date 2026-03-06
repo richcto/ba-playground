@@ -4,6 +4,7 @@ import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
+import StorageIcon from '@material-ui/icons/Storage';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -67,7 +68,12 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
       <SidebarDivider />
       <SidebarGroup label="Menu" icon={<MenuIcon />}>
         {/* Global nav, not org-specific */}
-        <SidebarItem icon={HomeIcon} to="catalog" text="Home" />
+        <SidebarItem icon={HomeIcon} to="/catalog" text="Home" />
+        <SidebarItem
+          icon={StorageIcon}
+          to="/catalog/kafka-topics"
+          text="Kafka Topics"
+        />
         <MyGroupsSidebarItem
           singularTitle="My Group"
           pluralTitle="My Groups"

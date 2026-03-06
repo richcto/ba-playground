@@ -1,0 +1,8 @@
+/* British Airways header branding - override page header background */
+/* Page header has grid-area: pageHeader, uses JSS classes - target header in main content */
+/* Gradient: navy (left) → red (right) */
+header[class*="jss"],
+header.MuiPaper-root {
+  background: linear-gradient(90deg, #01295C 0%, #EB2226 100%) !important;
+  background-image: linear-gradient(90deg, #01295C 0%, #EB2226 100%) !important;
+}

@@ -13,11 +13,13 @@ export const kafkaTopicsCatalogModule = createBackendModule({
       deps: {
         catalog: catalogProcessingExtensionPoint,
         database: coreServices.database,
+        logger: coreServices.logger,
       },
-      async init({ catalog, database }) {
+      async init({ catalog, database, logger }) {
         const knex = await database.getClient();
-        const provider = new KafkaTopicsEntityProvider(knex);
+        const provider = new KafkaTopicsEntityProvider(knex, logger);
         catalog.addEntityProvider(provider);
+        logger.info('Kafka topics entity provider registered');
       },
     });
   },

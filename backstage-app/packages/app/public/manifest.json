@@ -1,6 +1,6 @@
 {
-  "short_name": "Backstage",
-  "name": "Backstage",
+  "short_name": "BA Portal",
+  "name": "British Airways Developer Portal",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,6 @@
   ],
   "start_url": "./index.html",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#01295C",
   "background_color": "#ffffff"
 }
