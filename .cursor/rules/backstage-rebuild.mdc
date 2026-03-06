@@ -1,0 +1,14 @@
+---
+description: Rebuild and restart Backstage after making changes
+globs: backstage-app/**/*,backstage/**/*
+alwaysApply: false
+---
+
+# Backstage Rebuild and Restart
+
+After making changes to the Backstage app, backend, plugins, or config, **always** rebuild and restart:
+
+1. **Build backend**: `cd backstage-app && yarn build:backend`
+2. **Build and restart Docker**: `cd backstage && docker compose -f docker-compose.custom.yml build && docker compose -f docker-compose.custom.yml up -d --force-recreate backstage`
+
+Run both commands to apply changes. Do not skip this step.
