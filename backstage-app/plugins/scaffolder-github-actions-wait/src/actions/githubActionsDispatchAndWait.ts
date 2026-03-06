@@ -93,36 +93,52 @@ export function createGithubActionsDispatchAndWaitAction(options: {
         providedToken,
       );
 
-      await octokit.rest.actions.createWorkflowDispatch({
+      const dispatchResponse = await octokit.rest.actions.createWorkflowDispatch({
         owner,
         repo,
         workflow_id: workflowId,
         ref: branchOrTagName,
         inputs: workflowInputs as Record<string, string> | undefined,
+        return_run_details: true,
       });
 
-      ctx.logger.info('Workflow dispatched. Waiting for run to appear...');
-      await new Promise(r => setTimeout(r, INITIAL_DELAY_MS));
+      let run: { id: number; status: string; conclusion: string | null; html_url?: string };
+      const runIdFromResponse = (dispatchResponse.data as { workflow_run_id?: number })
+        ?.workflow_run_id;
 
-      const { data: runs } = await octokit.rest.actions.listWorkflowRunsForRepo({
-        owner,
-        repo,
-        workflow_id: workflowId,
-        event: 'workflow_dispatch',
-        per_page: 5,
-      });
+      if (runIdFromResponse) {
+        ctx.logger.info('Workflow dispatched. Polling run from API response...');
+        const { data: runData } = await octokit.rest.actions.getWorkflowRun({
+          owner,
+          repo,
+          run_id: runIdFromResponse,
+        });
+        run = runData;
+      } else {
+        ctx.logger.info('Workflow dispatched. Waiting for run to appear...');
+        await new Promise(r => setTimeout(r, INITIAL_DELAY_MS));
 
-      const run = runs.workflow_runs.find(
-        r =>
-          r.status === 'queued' ||
-          r.status === 'in_progress' ||
-          (r.status === 'completed' && Date.now() - new Date(r.updated_at).getTime() < 60_000),
-      );
+        const { data: runs } = await octokit.rest.actions.listWorkflowRunsForRepo({
+          owner,
+          repo,
+          workflow_id: workflowId,
+          event: 'workflow_dispatch',
+          per_page: 5,
+        });
 
-      if (!run) {
-        throw new InputError(
-          'Could not find the dispatched workflow run. It may have completed very quickly or failed to start.',
+        const found = runs.workflow_runs.find(
+          r =>
+            r.status === 'queued' ||
+            r.status === 'in_progress' ||
+            (r.status === 'completed' && Date.now() - new Date(r.updated_at).getTime() < 60_000),
         );
+
+        if (!found) {
+          throw new InputError(
+            'Could not find the dispatched workflow run. It may have completed very quickly or failed to start.',
+          );
+        }
+        run = found;
       }
 
       const runUrl = run.html_url || `https://github.com/${owner}/${repo}/actions/runs/${run.id}`;

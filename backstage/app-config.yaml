@@ -1,5 +1,5 @@
 app:
-  title: BA Playground
+  title: British Airways Developer Portal
   baseUrl: http://localhost:7007
 
 backend:
@@ -18,7 +18,6 @@ backend:
       user: ${POSTGRES_USER}
       password: ${POSTGRES_PASSWORD}
       database: ${POSTGRES_DB}
-
 catalog:
   rules:
     - allow: [Component, System, API, Resource, Location, Template]

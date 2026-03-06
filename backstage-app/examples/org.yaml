@@ -15,3 +15,12 @@ metadata:
 spec:
   type: team
   children: []
+---
+# Platform team for Kafka topics and infrastructure
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: platform
+spec:
+  type: team
+  children: []
