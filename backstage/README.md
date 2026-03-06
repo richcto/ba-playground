@@ -5,6 +5,7 @@ Docker Compose setup for a local Backstage developer portal.
 ## Features
 
 - **Create Kafka Topic** – provisions a new Kafka topic. Duplicate names are blocked. Topics are stored in the Backstage DB (no repo, no git pull). **Workflow status is polled and shown in the task logs**.
+- **Kafka UI (AKHQ)** – browse topics, consumer groups, and messages at http://localhost:8080. Set `KAFKA_BOOTSTRAP_SERVERS` in `.env` to point at your Kafka cluster.
 - **Destroy Kafka Topic** – destroys a topic and removes it from the catalog.
 - **Adjust Kafka Topic Partitions** – increases partitions for an existing topic (Kafka cannot decrease).
 
@@ -56,12 +57,13 @@ docker compose -f docker-compose.custom.yml up -d
 
 ## Configuration
 
-| Variable        | Default    | Description                    |
-|----------------|------------|--------------------------------|
-| `POSTGRES_USER`| backstage  | PostgreSQL user                |
-| `POSTGRES_PASSWORD` | backstage | PostgreSQL password        |
-| `POSTGRES_DB`  | backstage  | PostgreSQL database            |
-| `GITHUB_TOKEN` | (required) | GitHub PAT for workflow dispatch |
+| Variable                 | Default              | Description                          |
+|--------------------------|----------------------|--------------------------------------|
+| `POSTGRES_USER`          | backstage            | PostgreSQL user                      |
+| `POSTGRES_PASSWORD`      | backstage            | PostgreSQL password                  |
+| `POSTGRES_DB`            | backstage            | PostgreSQL database                  |
+| `GITHUB_TOKEN`           | (required)           | GitHub PAT for workflow dispatch     |
+| `KAFKA_BOOTSTRAP_SERVERS`| 13.135.14.116:9094   | Kafka bootstrap for AKHQ UI (port 8080) |
 
 ## Template Parameters
 

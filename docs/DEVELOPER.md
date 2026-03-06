@@ -70,15 +70,35 @@ SCHEMA_REGISTRY_URL=$(terraform -chdir=infra output -raw schema_registry_url)
 ./scripts/register-schemas.sh "$SCHEMA_REGISTRY_URL"
 ```
 
+### Kafka UI (AKHQ)
+
+AKHQ is included in the Backstage Docker Compose. After `docker compose up -d`, open http://localhost:8080 to browse topics, consumer groups, and messages. Set `KAFKA_BOOTSTRAP_SERVERS` in `backstage/.env` (e.g. from `terraform -chdir=infra output -raw kafka_bootstrap_servers`) to point at your Kafka cluster. Default: `13.135.14.116:9094`.
+
 ### Backstage portal (optional)
 
-A local Backstage portal can provision Kafka topics via a scaffolder template:
+A local Backstage portal can provision Kafka topics via a scaffolder template.
+
+**Quick start (official image):**
 
 ```bash
 cd backstage
 export GITHUB_TOKEN=ghp_xxxx   # PAT with workflow scope
 docker compose up -d
 ```
+
+**Custom image (recommended – workflow status in logs):**
+
+```bash
+cd backstage-app
+yarn install
+yarn build:backend
+cd ../backstage
+export GITHUB_TOKEN=ghp_xxxx   # or add to backstage/.env
+docker compose -f docker-compose.custom.yml build
+docker compose -f docker-compose.custom.yml up -d
+```
+
+After code/config changes, rebuild and restart: `cd backstage-app && yarn build:backend` then `cd ../backstage && docker compose -f docker-compose.custom.yml build && docker compose -f docker-compose.custom.yml up -d --force-recreate backstage`.
 
 Open http://localhost:7007 → **Create** → **Create Kafka Topic**. The template triggers the `deploy-kafka` workflow with the entered parameters. See `backstage/README.md` for details.
 
